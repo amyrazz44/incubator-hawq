@@ -34,9 +34,6 @@ Apache HAWQ is a Hadoop native SQL query engine that combines the key technologi
  - Standard connectivity: JDBC/ODBC
 
 # Build & Install & Test
-Please refer to the [BUILD_INSTRUCTIONS][1] file.
-
-  [1]: https://github.com/apache/incubator-hawq/blob/master/BUILD_INSTRUCTIONS.md "BUILD_INSTRUCTIONS"
 
 # Export Control
 ----------------
