@@ -286,6 +286,9 @@ optimize_query(Query *parse, ParamListInfo boundParams)
 		postprocess_plan(result);
 	}
 
+	if (result && result->intoPolicy && parse->intoPolicy)
+			result->intoPolicy->bucketnum = parse->intoPolicy->bucketnum;
+
 	log_optimizer(result, fUnexpectedFailure);
 
 	return result;
@@ -533,12 +536,6 @@ planner(Query *parse, int cursorOptions,
 				}
 
 				result = optimize_query(parse, boundParams);
-				if (ppResult->stmt && ppResult->stmt->intoPolicy
-						&& result && result->intoPolicy)
-				{
-					result->intoPolicy->bucketnum =
-							ppResult->stmt->intoPolicy->bucketnum;
-				}
 				optimizer_segments = optimizer_segments_saved_value;
 			}
 			END_MEMORY_ACCOUNT();
@@ -655,7 +652,26 @@ resource_negotiator(Query *parse, int cursorOptions, ParamListInfo boundParams,
     Query *my_parse = copyObject(parse);
     ParamListInfo my_boundParams = copyParamList(boundParams);
 
-    plannedstmt = standard_planner(my_parse, cursorOptions, my_boundParams);
+#ifdef USE_ORCA
+    /**
+    * If the new optimizer is enabled, try that first. If it does not return a plan,
+    * then fall back to the planner.
+    * TODO: caragg 11/08/2013: Enable ORCA when running in utility mode (MPP-21841)
+    */
+    if (optimizer && AmIMaster() && (GP_ROLE_UTILITY != Gp_role))
+    {
+      if (optimizer_segments == 0) // value not set by user
+      {
+        optimizer_segments = gp_segments_for_planner;
+      }
+
+      plannedstmt = optimize_query(my_parse, my_boundParams);
+    }
+#endif
+	if (plannedstmt == NULL)
+	{
+    	plannedstmt = standard_planner(my_parse, cursorOptions, my_boundParams);
+	}
     (*result)->stmt = plannedstmt;
 
     /* If this is a parallel plan. */
