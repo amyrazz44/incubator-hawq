@@ -301,6 +301,18 @@ public:
       return socketCacheCapacity;
     }
 
+    /*
+     * Encryption configure
+     */
+
+    const std::string& getKmsUrl() const {
+      return kmsUrl;
+    }
+
+    void setKmsUrl(const std::string& kmsUrl) {
+        this->kmsUrl = kmsUrl;
+    }
+
 public:
     /*
      * rpc configure
@@ -359,6 +371,11 @@ public:
     int32_t packetPoolSize;
     int32_t heartBeatInterval;
     int32_t closeFileTimeout;
+
+    /*
+     * Encryption configure
+     */
+    std::string kmsUrl;
 
 };
 

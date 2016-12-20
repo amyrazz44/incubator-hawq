@@ -198,6 +198,14 @@ TEST(TestCInterfaceConnect, TestConnect_Success) {
     ASSERT_EQ(hdfsDisconnect(fs), 0);
 }
 
+TEST(TestCInterfaceConfig, TestConfig_Success) {
+    char * uri = NULL;
+    setenv("LIBHDFS3_CONF", "configure-test.xml", 1);
+    ASSERT_EQ(0, hdfsConfGetStr("dfs.encryption.key.provider.uri", &uri));
+    LOG(INFO, "KmsUrl : %s", uri);
+    hdfsConfStrFree(uri); 
+}
+
 
 TEST(TestErrorMessage, TestErrorMessage) {
     EXPECT_NO_THROW(hdfsGetLastError());
