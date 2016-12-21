@@ -792,5 +792,19 @@ void NamenodeImpl::cancelDelegationToken(const Token & token) {
     }
 }
 
+bool NamenodeImpl::createEncryptionZone(const std::string & src, const std::string & keyName) {
+    try {
+        CreateEncryptionZoneRequestProto request;
+        CreateEncryptionZoneResponseProto response;
+        request.set_src(src);
+        request.set_keyname(keyName);
+        invoke(RpcCall(true, "createEncryptionZone ",&request, &response));
+        return true;
+    } catch (const HdfsRpcServerException & e) {
+        UnWrapper < HdfsIOException > unwrapper(e);
+        unwrapper.unwrap(__FILE__, __LINE__);
+    }
+}
+
 }
 }

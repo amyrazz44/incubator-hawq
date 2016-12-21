@@ -1450,6 +1450,22 @@ void hdfsFreeFileBlockLocations(BlockLocation * locations, int numOfBlock) {
     delete [] locations;
 }
 
+int hdfsCreateEncryptionZone(hdfsFS fs, const char * path, const char * keyName) {
+    PARAMETER_ASSERT(fs && path && strlen(path) > 0 && keyName && strlen(keyName) > 0, -1, EINVAL);
+
+    try {
+        return fs->getFilesystem().createEncryptionZone(path, keyName) ? 0 : -1;
+    } catch (const std::bad_alloc & e) {
+        SetErrorMessage("Out of memory");
+        errno = ENOMEM;
+    } catch (...) {
+        SetLastException(Hdfs::current_exception());
+        handleException(Hdfs::current_exception());
+    }
+
+    return -1;
+}
+
 #ifdef __cplusplus
 }
 #endif

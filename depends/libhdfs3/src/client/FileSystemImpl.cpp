@@ -775,5 +775,28 @@ bool FileSystemImpl::unregisterOpenedOutputStream() {
     return  openedOutputStream == 0;
 }
 
+/**
+ * Create encryption zone for the directory with specific key name
+ * @param path the directory path which is to be created.
+ * @param keyname The key name of the encryption zone 
+ * @return return true if success.
+ */
+
+bool FileSystemImpl::createEncryptionZone(const char * path, const char * keyName) {
+    if (!nn) {
+        THROW(HdfsIOException, "FileSystemImpl: not connected.");
+    }
+
+    if (NULL == path || !strlen(path)) {
+        THROW(InvalidParameter, "Invalid input: path should not be empty");
+    }
+
+    if (NULL == keyName || !strlen(keyName)) {
+        THROW(InvalidParameter, "Invalid input: key name should not be empty");
+    }
+
+    return nn->createEncryptionZone(getStandardPath(path), keyName);
+}
+
 }
 }

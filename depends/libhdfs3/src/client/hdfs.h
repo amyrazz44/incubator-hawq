@@ -723,6 +723,15 @@ BlockLocation * hdfsGetFileBlockLocations(hdfsFS fs, const char * path,
  */
 void hdfsFreeFileBlockLocations(BlockLocation * locations, int numOfBlock);
 
+/**
+ * Create encryption zone for the directory with specific key name
+ * @param fs The configured filesystem handle.
+ * @param path The path of the directory.
+ * @param keyname The key name of the encryption zone 
+ * @return Returns 0 on success, -1 on error.
+ */
+int hdfsCreateEncryptionZone(hdfsFS fs, const char * path, const char * keyName);
+
 #ifdef __cplusplus
 }
 #endif

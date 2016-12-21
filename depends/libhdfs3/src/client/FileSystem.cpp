@@ -582,4 +582,19 @@ void FileSystem::cancelDelegationToken(const std::string & token) {
     impl->filesystem->cancelDelegationToken(token);
 }
 
+
+/**
+ * Create encryption zone for the directory with specific key name
+ * @param path the directory path which is to be created.
+ * @param keyname The key name of the encryption zone 
+ * @return return true if success.
+ */
+bool FileSystem::createEncryptionZone(const char * path, const char * keyName) {
+    if (!impl) {
+        THROW(HdfsIOException, "FileSystem: not connected.");
+    }
+
+    return impl->filesystem->createEncryptionZone(path, keyName);
+}
+
 }

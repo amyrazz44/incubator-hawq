@@ -481,6 +481,15 @@ public:
      * @return return the peer cache.
      */
     virtual PeerCache& getPeerCache() = 0;
+
+    /**
+     * Create encryption zone for the directory with specific key name
+     * @param path the directory path which is to be created.
+     * @param keyname The key name of the encryption zone 
+     * @return return true if success.
+     */
+    virtual bool createEncryptionZone(const char * path, const char * keyName) = 0;
+
 };
 
 }
