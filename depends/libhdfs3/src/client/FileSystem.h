@@ -276,6 +276,14 @@ public:
      */
     void cancelDelegationToken(const std::string & token);
 
+    /**
+     * Create encryption zone for the directory with specific key name
+     * @param path the directory path which is to be created.
+     * @param keyname The key name of the encryption zone 
+     * @return return true if success.
+     */
+    bool createEncryptionZone(const char * path, const char * keyName);
+
 private:
     Config conf;
     Internal::FileSystemWrapper * impl;
