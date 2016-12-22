@@ -206,6 +206,23 @@ TEST(TestCInterfaceConfig, TestConfig_Success) {
     hdfsConfStrFree(uri); 
 }
 
+TEST(TestCInterfaceTDE, TestCreateEnRPC_Success) {
+    hdfsFS fs = NULL;
+    char * uri = NULL;
+    setenv("LIBHDFS3_CONF", "function-test.xml", 1);
+    struct hdfsBuilder * bld = hdfsNewBuilder();
+    assert(bld != NULL);
+    hdfsBuilderSetNameNode(bld, "default");
+    fs = hdfsBuilderConnect(bld);
+    ASSERT_TRUE(fs != NULL);
+	system("hadoop fs -rmr /TDE");
+	system("hadoop key create keytde");
+	system("hadoop fs -mkdir /TDE");
+    ASSERT_EQ(0, hdfsCreateEncryptionZone(fs, "/TDE", "keytde")); 
+    ASSERT_EQ(hdfsDisconnect(fs), 0);
+    hdfsFreeBuilder(bld);
+}
+
 
 TEST(TestErrorMessage, TestErrorMessage) {
     EXPECT_NO_THROW(hdfsGetLastError());
