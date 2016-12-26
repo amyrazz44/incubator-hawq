@@ -85,6 +85,7 @@ void NamenodeImpl::create(const std::string & src, const Permission & masked,
          FileAlreadyExistsException, FileNotFoundException,
          NSQuotaExceededException, ParentNotDirectoryException,
           UnresolvedLinkException, HdfsIOException) */{
+
     try {
         CreateRequestProto request;
         CreateResponseProto response;
@@ -94,6 +95,7 @@ void NamenodeImpl::create(const std::string & src, const Permission & masked,
         request.set_createparent(createParent);
         request.set_replication(replication);
         request.set_src(src);
+        request.add_cryptoprotocolversion(CryptoProtocolVersionProto::ENCRYPTION_ZONES);
         Build(masked, request.mutable_masked());
         invoke(RpcCall(false, "create", &request, &response));
     } catch (const HdfsRpcServerException & e) {
