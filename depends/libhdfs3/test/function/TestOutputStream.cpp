@@ -517,6 +517,16 @@ TEST_F(TestOutputStream, TestOpenFileForWrite) {
 }
 
 
+TEST_F(TestOutputStream, TestOpenFileForWriteTDE){
+    ASSERT_NO_THROW(
+        ous.open(*fs, "/testTDE", Create));
+    ous.close();
+    system("hadoop key create amy");
+    system("hdfs crypto -createZone -keyName amy -path /testTDE");
+    OutputStream other;
+    EXPECT_THROW(other.open(*fs, "/testTDE/amy", Create),
+                 AlreadyBeingCreatedException);
+}
 
 TEST_F(TestOutputStream, TestWriteChunkPacket) {
     //test create a file and write a block
