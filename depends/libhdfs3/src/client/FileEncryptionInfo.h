@@ -49,44 +49,44 @@ public:
     }
 
     const std::string & getKey() const{
-		return key;
-	}
+        return key;
+    }
 
-	void setKey(const std::string & key){
-		this->key = key;
-	}
+    void setKey(const std::string & key){
+        this->key = key;
+    }
 
-	const std::string & getKeyName() const{
-		return keyName;
-	}
+    const std::string & getKeyName() const{
+        return keyName;
+    }
 
-	void setKeyName(const std::string & keyName){
-		this->keyName = keyName;
-	}
+    void setKeyName(const std::string & keyName){
+        this->keyName = keyName;
+    }
 
-	const std::string & getIv() const{
-		return iv;
-	} 
+    const std::string & getIv() const{
+        return iv;
+    } 
 
-	void setIv(const std::string & iv){
-		this->iv = iv;
-	}
+    void setIv(const std::string & iv){
+        this->iv = iv;
+    }
 	
-	const std::string & getEzKeyVersionName() const{
-		return ezKeyVersionName;
-	}
+    const std::string & getEzKeyVersionName() const{
+        return ezKeyVersionName;
+    }
 
-	void setEzKeyVersionName(const std::string & ezKeyVersionName){
-		this->ezKeyVersionName = ezKeyVersionName;
-	}
+    void setEzKeyVersionName(const std::string & ezKeyVersionName){
+        this->ezKeyVersionName = ezKeyVersionName;
+    }
 
 private:
-	int suite;
+    int suite;
     int cryptoProtocolVersion;
-	std::string key;
-	std::string iv;
+    std::string key;
+    std::string iv;
     std::string keyName;
-	std::string ezKeyVersionName; 
+    std::string ezKeyVersionName; 
 };
 
 }

@@ -144,12 +144,12 @@ public:
         return !symlink.empty();
     }
 
-	/**
-	* Get encryption information for a file.
-	*/
-	FileEncryptionInfo& getFileEncryption() {
-		return fileencryption;
-	}
+    /**
+    * Get encryption information for a file.
+    */
+    FileEncryptionInfo& getFileEncryption() {
+        return fileencryption;
+    }
 
 private:
     bool isdir;

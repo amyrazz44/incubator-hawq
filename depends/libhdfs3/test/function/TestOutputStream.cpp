@@ -516,17 +516,22 @@ TEST_F(TestOutputStream, TestOpenFileForWrite) {
     ous.close();
 }
 
+/*
+will be enabled when write with TDE has ready
 
 TEST_F(TestOutputStream, TestOpenFileForWriteTDE){
-    ASSERT_NO_THROW(
-        ous.open(*fs, "/testTDE", Create));
-    ous.close();
+    conf.set("output.default.packetsize", 1024);
+    fs = new FileSystem(conf);
+    fs->connect();
+    fs->mkdirs("/testTDE", 0755);
     system("hadoop key create amy");
     system("hdfs crypto -createZone -keyName amy -path /testTDE");
     OutputStream other;
-    EXPECT_THROW(other.open(*fs, "/testTDE/amy", Create),
-                 AlreadyBeingCreatedException);
+    ASSERT_NO_THROW(other.open(*fs, "/testTDE/amy", Create | Append));
+    other.close();
+    fs->disconnect();
 }
+*/
 
 TEST_F(TestOutputStream, TestWriteChunkPacket) {
     //test create a file and write a block
