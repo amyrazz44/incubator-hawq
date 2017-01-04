@@ -249,9 +249,6 @@ void OutputStreamImpl::openInternal(shared_ptr<FileSystemInter> fs, const char *
     assert((flag & Create) || (flag & Overwrite));
     fs->create(this->path, permission, flag, createParent, this->replication,
                this->blockSize);
-    FileStatus fileStatus = fs->getFileStatus(this->path.c_str());
-    FileEncryptionInfo &fileEnInfo = fileStatus.getFileEncryption();
-    LOG(WARNING, "FileEncryptionInfo : suite : %d ; cryptoProtocolVersion : %d ; key : %s ; iv : %s ; keyName : %s ; ezKeyVersionName : %s ;", fileEnInfo.getSuite(), fileEnInfo.getCryptoProtocolVersion(), fileEnInfo.getKey().c_str(), fileEnInfo.getIv().c_str(), fileEnInfo.getKeyName().c_str(), fileEnInfo.getEzKeyVersionName().c_str());	
     closed = false;
     computePacketChunkSize();
     LeaseRenewer::GetLeaseRenewer().StartRenew(filesystem);

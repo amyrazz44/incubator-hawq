@@ -147,8 +147,16 @@ public:
     /**
     * Get encryption information for a file.
     */
-    FileEncryptionInfo& getFileEncryption() {
-        return fileencryption;
+    FileEncryptionInfo* getFileEncryption(){
+        return &fileencryption;
+    }
+
+    /**
+    * Is an encryption file?
+    * @return true is this is an encryption file
+    */
+    bool isFileEncrypted() const {
+        return fileencryption.getKey().length() > 0 || fileencryption.getKeyName().length() > 0;
     }
 
 private:

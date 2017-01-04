@@ -182,6 +182,17 @@ static inline void Convert(const std::string & src, FileStatus & fs,
     fs.setSymlink(proto.symlink().c_str());
     fs.setPermission(Permission(proto.permission().perm()));
     fs.setIsdir(proto.filetype() == HdfsFileStatusProto::IS_DIR);
+
+    if (proto.has_fileencryptioninfo()){
+        const FileEncryptionInfoProto &encrypt = proto.fileencryptioninfo();
+        FileEncryptionInfo* convert = fs.getFileEncryption();
+        convert->setSuite(encrypt.suite());
+        convert->setCryptoProtocolVersion(encrypt.cryptoprotocolversion());
+        convert->setKey(encrypt.key());
+        convert->setKeyName(encrypt.keyname());
+        convert->setIv(encrypt.iv());
+        convert->setEzKeyVersionName(encrypt.ezkeyversionname()); 
+    }
 }
 
 static inline void Convert(const std::string & src,
