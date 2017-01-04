@@ -482,6 +482,18 @@ int hdfsCreateDirectory(hdfsFS fs, const char * path);
 int hdfsSetReplication(hdfsFS fs, const char * path, int16_t replication);
 
 /**
+ * hdfsEncryptionFileInfo - Information about an encryption file/directory.
+ */
+typedef struct {
+    int mSuite; /* the suite of encryption file/directory */
+    int mCryptoProtocolVersion; /* the version of crypto protocol */
+    char * mKey; /* the key of encryption file/directory */
+    char * mKeyName; /* the key name of encryption file/directory */
+    char * mIv; /* the iv of encryption file/directory */
+    char * mEzKeyVersionName; /* the version encryption file/directory */
+} hdfsEncryptionFileInfo;
+
+/**
  * hdfsFileInfo - Information about a file/directory.
  */
 typedef struct {
@@ -495,6 +507,7 @@ typedef struct {
     char * mGroup; /* the group associated with the file */
     short mPermissions; /* the permissions associated with the file */
     tTime mLastAccess; /* the last access time for the file in seconds */
+    hdfsEncryptionFileInfo * mHdfsEncryptionFileInfo; /* the encryption info of the file/directory */
 } hdfsFileInfo;
 
 /**

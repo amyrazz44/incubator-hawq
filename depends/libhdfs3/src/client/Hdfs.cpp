@@ -989,8 +989,18 @@ int hdfsSetReplication(hdfsFS fs, const char * path, int16_t replication) {
     return -1;
 }
 
+static void ConstructHdfsEncryptionFileInfo(hdfsEncryptionFileInfo * infoEn,
+                                  Hdfs::FileEncryptionInfo* enStatus) {
+    infoEn->mSuite = enStatus->getSuite();
+    infoEn->mCryptoProtocolVersion = enStatus->getCryptoProtocolVersion();
+    infoEn->mKey = const_cast<char*>(enStatus->getKey().c_str());
+    infoEn->mKeyName = const_cast<char*>(enStatus->getKeyName().c_str());
+    infoEn->mIv = const_cast<char*>(enStatus->getIv().c_str());
+    infoEn->mEzKeyVersionName = const_cast<char*>(enStatus->getEzKeyVersionName().c_str());
+}
+
 static void ConstructHdfsFileInfo(hdfsFileInfo * infos,
-                                  const std::vector<Hdfs::FileStatus> & status) {
+                                  std::vector<Hdfs::FileStatus> & status) {
     size_t size = status.size();
 
     for (size_t i = 0; i < size; ++i) {
@@ -1006,6 +1016,13 @@ static void ConstructHdfsFileInfo(hdfsFileInfo * infos,
         infos[i].mPermissions = status[i].getPermission().toShort();
         infos[i].mReplication = status[i].getReplication();
         infos[i].mSize = status[i].getLength();
+        infos[i].mHdfsEncryptionFileInfo = NULL;
+        if (status[i].isFileEncrypted()) {
+             infos[i].mHdfsEncryptionFileInfo = new hdfsEncryptionFileInfo[1];
+             memset(infos[i].mHdfsEncryptionFileInfo, 0, sizeof(hdfsEncryptionFileInfo));
+             ConstructHdfsEncryptionFileInfo(infos[i].mHdfsEncryptionFileInfo, status[i].getFileEncryption());
+             
+        }
     }
 }
 
@@ -1066,6 +1083,9 @@ void hdfsFreeFileInfo(hdfsFileInfo * infos, int numEntries) {
         delete [] infos[i].mGroup;
         delete [] infos[i].mName;
         delete [] infos[i].mOwner;
+        if (infos[i].mHdfsEncryptionFileInfo != NULL) {
+            delete [] infos[i].mHdfsEncryptionFileInfo;
+        }
     }
 
     delete[] infos;
