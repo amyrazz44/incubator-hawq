@@ -208,6 +208,7 @@ TEST(TestCInterfaceConfig, TestConfig_Success) {
 
 TEST(TestCInterfaceTDE, TestCreateEnRPC_Success) {
     hdfsFS fs = NULL;
+    hdfsEncryptionZoneInfo * enInfo = NULL;
     char * uri = NULL;
     setenv("LIBHDFS3_CONF", "function-test.xml", 1);
     struct hdfsBuilder * bld = hdfsNewBuilder();
@@ -219,6 +220,10 @@ TEST(TestCInterfaceTDE, TestCreateEnRPC_Success) {
 	system("hadoop key create keytde");
 	system("hadoop fs -mkdir /TDE");
     ASSERT_EQ(0, hdfsCreateEncryptionZone(fs, "/TDE", "keytde")); 
+    enInfo = hdfsGetEZForPath(fs, "/TDE");
+    ASSERT_TRUE(enInfo != NULL);
+    EXPECT_TRUE(enInfo->mKeyName != NULL);
+    std::cout << "----hdfsEncryptionZoneInfo----:" << " KeyName : " << enInfo->mKeyName << " Suite : " << enInfo->mSuite << " CryptoProtocolVersion : " << enInfo->mCryptoProtocolVersion << " Id : " << enInfo->mId << " Path : " << enInfo->mPath << std::endl; 
     ASSERT_EQ(hdfsDisconnect(fs), 0);
     hdfsFreeBuilder(bld);
 }

@@ -597,4 +597,17 @@ bool FileSystem::createEncryptionZone(const char * path, const char * keyName) {
     return impl->filesystem->createEncryptionZone(path, keyName);
 }
 
+/**
+* To get encryption zone information.
+* @param path the path which information is to be returned.
+* @return the encryption zone information.
+*/
+EncryptionZoneInfo FileSystem::getEZForPath(const char * path) {
+    if (!impl) {
+        THROW(HdfsIOException, "FileSystem: not connected.");
+    }
+   
+    return impl->filesystem->getEZForPath(path);
+}
+
 }

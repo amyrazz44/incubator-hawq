@@ -28,6 +28,7 @@
 #include "FileSystemInter.h"
 #include "FileSystemKey.h"
 #include "FileSystemStats.h"
+#include "EncryptionZoneInfo.h"
 #include "Permission.h"
 #include "server/Namenode.h"
 #include "SessionConfig.h"
@@ -484,6 +485,13 @@ public:
      * @return return true if success.
      */
     bool createEncryptionZone(const char * path, const char * keyName);
+
+    /**
+     * To get encryption zone information.
+     * @param path the path which information is to be returned.
+     * @return the encryption zone information.
+     */
+    EncryptionZoneInfo getEZForPath(const char * path);
 
 private:
     Config conf;

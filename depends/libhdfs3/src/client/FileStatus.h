@@ -148,7 +148,7 @@ public:
     * Get encryption information for a file.
     */
     FileEncryptionInfo* getFileEncryption(){
-        return &fileencryption;
+        return &fileEncryption;
     }
 
     /**
@@ -156,7 +156,7 @@ public:
     * @return true is this is an encryption file
     */
     bool isFileEncrypted() const {
-        return fileencryption.getKey().length() > 0 || fileencryption.getKeyName().length() > 0;
+        return fileEncryption.getKey().length() > 0 || fileEncryption.getKeyName().length() > 0;
     }
 
 private:
@@ -171,7 +171,7 @@ private:
     std::string owner;
     std::string path;
     std::string symlink;
-    FileEncryptionInfo fileencryption;
+    FileEncryptionInfo fileEncryption;
 };
 
 }
