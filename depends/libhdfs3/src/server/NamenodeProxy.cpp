@@ -532,5 +532,13 @@ bool NamenodeProxy::createEncryptionZone(const std::string & src, const std::str
     return false;
 }
 
+EncryptionZoneInfo NamenodeProxy::getEncryptionZoneInfo(const std::string & src, bool *exist) {
+    NAMENODE_HA_RETRY_BEGIN();
+    return namenode->getEncryptionZoneInfo(src, exist);
+    NAMENODE_HA_RETRY_END();
+    assert(!"should not reach here");
+    return EncryptionZoneInfo();
+}
+
 }
 }

@@ -226,6 +226,13 @@ public:
      */
     bool createEncryptionZone(const std::string & src, const std::string & keyName);
 
+    /**
+     * To get encryption zone information.
+     * @param path the path which information is to be returned.
+     * @return the encryption zone information.
+     */
+    EncryptionZoneInfo getEncryptionZoneInfo(const std::string & src, bool *exist);
+     
 private:
     void invoke(const RpcCall & call);
 

@@ -23,6 +23,7 @@
 #define _HDFS_LIBHDFS3_SERVER_NAMENODE_H_
 
 #include "client/FileStatus.h"
+#include "client/EncryptionZoneInfo.h"
 #include "client/Permission.h"
 #include "DatanodeInfo.h"
 #include "Exception.h"
@@ -818,6 +819,12 @@ public:
      */
     virtual bool createEncryptionZone(const std::string & src, const std::string & keyName) = 0;
 
+    /**
+     * To get encryption zone information.
+     * @param path the path which information is to be returned.
+     * @return the encryption zone information.
+     */
+    virtual EncryptionZoneInfo getEncryptionZoneInfo(const std::string & src, bool *exist) = 0; 
 };
 
 }

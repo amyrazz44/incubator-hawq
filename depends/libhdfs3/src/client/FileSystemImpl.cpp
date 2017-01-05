@@ -27,6 +27,7 @@
 #include "FileStatus.h"
 #include "FileSystemImpl.h"
 #include "FileSystemStats.h"
+#include "EncryptionZoneInfo.h"
 #include "InputStream.h"
 #include "LeaseRenewer.h"
 #include "Logger.h"
@@ -798,5 +799,23 @@ bool FileSystemImpl::createEncryptionZone(const char * path, const char * keyNam
     return nn->createEncryptionZone(getStandardPath(path), keyName);
 }
 
+
+/**
+ * To get encryption zone information.
+ * @param path the path which information is to be returned.
+ * @return the encryption zone information.
+ */
+
+EncryptionZoneInfo FileSystemImpl::getEZForPath(const char * path) {
+    if (!nn) {
+        THROW(HdfsIOException, "FileSystemImpl: not connected.");
+    }
+
+    if (NULL == path || !strlen(path)) {
+        THROW(InvalidParameter, "Invalid input: path should not be empty");
+    }
+
+    return nn->getEncryptionZoneInfo(getStandardPath(path), NULL);
+}
 }
 }

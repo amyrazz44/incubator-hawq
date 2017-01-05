@@ -808,5 +808,41 @@ bool NamenodeImpl::createEncryptionZone(const std::string & src, const std::stri
     }
 }
 
+EncryptionZoneInfo NamenodeImpl::getEncryptionZoneInfo(const std::string & src, bool *exist)
+/* throw (FileNotFoundException,
+ UnresolvedLinkException, HdfsIOException) */{
+    EncryptionZoneInfo retval;
+
+    try {
+        GetEZForPathRequestProto request;
+        GetEZForPathResponseProto response;
+        request.set_src(src);
+        invoke(RpcCall(true, "getEZForPath", &request, &response));
+
+        if (response.has_zone()) {
+            Convert(src, retval, response.zone());
+            retval.setPath(src.c_str());
+
+            if (exist) {
+                *exist = true;
+            }
+
+            return retval;
+        }
+
+        if (!exist) {
+            THROW(FileNotFoundException, "Path %s does not exist.", src.c_str());
+        }
+
+        *exist = false;
+    } catch (const HdfsRpcServerException & e) {
+        UnWrapper < FileNotFoundException,
+                  UnresolvedLinkException, HdfsIOException > unwrapper(e);
+        unwrapper.unwrap(__FILE__, __LINE__);
+    }
+
+    return retval;
+}
+
 }
 }

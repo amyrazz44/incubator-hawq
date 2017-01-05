@@ -30,6 +30,7 @@
 #include "FileStatus.h"
 #include "FileSystemKey.h"
 #include "FileSystemStats.h"
+#include "EncryptionZoneInfo.h"
 #include "PeerCache.h"
 #include "Permission.h"
 #include "server/LocatedBlocks.h"
@@ -490,6 +491,12 @@ public:
      */
     virtual bool createEncryptionZone(const char * path, const char * keyName) = 0;
 
+    /**
+     * To get encryption zone information.
+     * @param path the path which information is to be returned.
+     * @return the encryption zone information.
+     */
+    virtual EncryptionZoneInfo getEZForPath(const char * path) = 0;
 };
 
 }

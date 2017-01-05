@@ -23,6 +23,7 @@
 #define _HDFS_LIBHDFS3_SERVER_RPCHELPER_H_
 
 #include "client/FileStatus.h"
+#include "client/EncryptionZoneInfo.h"
 #include "client/Permission.h"
 #include "ClientDatanodeProtocol.pb.h"
 #include "ClientNamenodeProtocol.pb.h"
@@ -193,6 +194,15 @@ static inline void Convert(const std::string & src, FileStatus & fs,
         convert->setIv(encrypt.iv());
         convert->setEzKeyVersionName(encrypt.ezkeyversionname()); 
     }
+}
+
+static inline void Convert(const std::string & src, EncryptionZoneInfo & enZone,
+                           const EncryptionZoneProto & proto) {
+    enZone.setSuite(proto.suite());
+    enZone.setCryptoProtocolVersion(proto.cryptoprotocolversion());
+    enZone.setId(proto.id());
+    enZone.setPath(proto.path().c_str());
+    enZone.setKeyName(proto.keyname().c_str());
 }
 
 static inline void Convert(const std::string & src,

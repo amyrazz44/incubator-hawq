@@ -989,6 +989,19 @@ int hdfsSetReplication(hdfsFS fs, const char * path, int16_t replication) {
     return -1;
 }
 
+static void ConstructHdfsEncryptionZoneInfo(hdfsEncryptionZoneInfo * infoEn,
+                                  std::vector<Hdfs::EncryptionZoneInfo> & enStatus) {
+    size_t size = enStatus.size();
+
+    for (size_t i = 0; i < size; ++i) {
+        infoEn[i].mSuite = enStatus[i].getSuite();
+        infoEn[i].mCryptoProtocolVersion = enStatus[i].getCryptoProtocolVersion();
+        infoEn[i].mId = enStatus[i].getId();
+        infoEn[i].mPath = const_cast<char*>(enStatus[i].getPath().c_str());
+        infoEn[i].mKeyName = const_cast<char*>(enStatus[i].getKeyName().c_str());
+    }
+}
+
 static void ConstructHdfsEncryptionFileInfo(hdfsEncryptionFileInfo * infoEn,
                                   Hdfs::FileEncryptionInfo* enStatus) {
     infoEn->mSuite = enStatus->getSuite();
@@ -1076,6 +1089,14 @@ hdfsFileInfo * hdfsGetPathInfo(hdfsFS fs, const char * path) {
     }
 
     return NULL;
+}
+
+void hdfsFreeEncryptionZoneInfo(hdfsEncryptionZoneInfo * infos, int numEntries) {
+    for (int i = 0; infos != NULL && i < numEntries; ++i) {
+        delete [] infos[i].mPath;
+        delete [] infos[i].mKeyName;
+    }
+    delete[] infos;
 }
 
 void hdfsFreeFileInfo(hdfsFileInfo * infos, int numEntries) {
@@ -1484,6 +1505,30 @@ int hdfsCreateEncryptionZone(hdfsFS fs, const char * path, const char * keyName)
     }
 
     return -1;
+}
+
+hdfsEncryptionZoneInfo * hdfsGetEZForPath(hdfsFS fs, const char * path) {
+    PARAMETER_ASSERT(fs && path && strlen(path) > 0, NULL, EINVAL);
+    hdfsEncryptionZoneInfo * retval = NULL;
+
+    try {
+        retval = new hdfsEncryptionZoneInfo[1];
+        memset(retval, 0, sizeof(hdfsEncryptionZoneInfo));
+        std::vector<Hdfs::EncryptionZoneInfo> enStatus(1);
+        enStatus[0] = fs->getFilesystem().getEZForPath(path);
+        ConstructHdfsEncryptionZoneInfo(retval, enStatus);
+        return retval;
+    } catch (const std::bad_alloc & e) {
+        SetErrorMessage("Out of memory");
+        hdfsFreeEncryptionZoneInfo(retval, 1);
+        errno = ENOMEM;
+    } catch (...) {
+        SetLastException(Hdfs::current_exception());
+        hdfsFreeEncryptionZoneInfo(retval, 1);
+        handleException(Hdfs::current_exception());
+    }
+
+    return NULL;
 }
 
 #ifdef __cplusplus
