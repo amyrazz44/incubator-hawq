@@ -29,7 +29,7 @@ namespace Hdfs {
 class EncryptionZoneInfo {
 public:
     EncryptionZoneInfo() : 
-		cryptoProtocolVersion(0), suite(0){
+		cryptoProtocolVersion(0), suite(0), id(0){
     }
 
     int getSuite() const {
@@ -56,26 +56,26 @@ public:
         this->id = id;
     }
 
-    const std::string & getPath() const{
-        return path;
+    const char * getPath() const{
+        return path.c_str();
     }
 
-    void setPath(const std::string & path){
+    void setPath(const char * path){
         this->path = path;
     }
 
-    const std::string & getKeyName() const{
-        return keyName;
+    const char * getKeyName() const{
+        return keyName.c_str();
     }
 
-    void setKeyName(const std::string & keyName){
+    void setKeyName(const char * keyName){
         this->keyName = keyName;
     }
 
 private:
     int suite;
     int cryptoProtocolVersion;
-    int id;
+    int64_t id;
     std::string path;
     std::string keyName;
 };

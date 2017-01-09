@@ -48,35 +48,35 @@ public:
         this->cryptoProtocolVersion = cryptoProtocolVersion;
     }
 
-    const std::string & getKey() const{
-        return key;
+    const char * getKey() const{
+        return key.c_str();
     }
 
-    void setKey(const std::string & key){
+    void setKey(const char * key){
         this->key = key;
     }
 
-    const std::string & getKeyName() const{
-        return keyName;
+    const char * getKeyName() const{
+        return keyName.c_str();
     }
 
-    void setKeyName(const std::string & keyName){
+    void setKeyName(const char * keyName){
         this->keyName = keyName;
     }
 
-    const std::string & getIv() const{
-        return iv;
+    const char * getIv() const{
+        return iv.c_str();
     } 
 
-    void setIv(const std::string & iv){
+    void setIv(const char * iv){
         this->iv = iv;
     }
 	
-    const std::string & getEzKeyVersionName() const{
-        return ezKeyVersionName;
+    const char * getEzKeyVersionName() const{
+        return ezKeyVersionName.c_str();
     }
 
-    void setEzKeyVersionName(const std::string & ezKeyVersionName){
+    void setEzKeyVersionName(const char * ezKeyVersionName){
         this->ezKeyVersionName = ezKeyVersionName;
     }
 

@@ -189,10 +189,10 @@ static inline void Convert(const std::string & src, FileStatus & fs,
         FileEncryptionInfo* convert = fs.getFileEncryption();
         convert->setSuite(encrypt.suite());
         convert->setCryptoProtocolVersion(encrypt.cryptoprotocolversion());
-        convert->setKey(encrypt.key());
-        convert->setKeyName(encrypt.keyname());
-        convert->setIv(encrypt.iv());
-        convert->setEzKeyVersionName(encrypt.ezkeyversionname()); 
+        convert->setKey(encrypt.key().c_str());
+        convert->setKeyName(encrypt.keyname().c_str());
+        convert->setIv(encrypt.iv().c_str());
+        convert->setEzKeyVersionName(encrypt.ezkeyversionname().c_str()); 
     }
 }
 

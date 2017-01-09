@@ -997,8 +997,8 @@ static void ConstructHdfsEncryptionZoneInfo(hdfsEncryptionZoneInfo * infoEn,
         infoEn[i].mSuite = enStatus[i].getSuite();
         infoEn[i].mCryptoProtocolVersion = enStatus[i].getCryptoProtocolVersion();
         infoEn[i].mId = enStatus[i].getId();
-        infoEn[i].mPath = const_cast<char*>(enStatus[i].getPath().c_str());
-        infoEn[i].mKeyName = const_cast<char*>(enStatus[i].getKeyName().c_str());
+        infoEn[i].mPath = Strdup(enStatus[i].getPath());
+        infoEn[i].mKeyName = Strdup(enStatus[i].getKeyName());
     }
 }
 
@@ -1006,10 +1006,10 @@ static void ConstructHdfsEncryptionFileInfo(hdfsEncryptionFileInfo * infoEn,
                                   Hdfs::FileEncryptionInfo* enStatus) {
     infoEn->mSuite = enStatus->getSuite();
     infoEn->mCryptoProtocolVersion = enStatus->getCryptoProtocolVersion();
-    infoEn->mKey = const_cast<char*>(enStatus->getKey().c_str());
-    infoEn->mKeyName = const_cast<char*>(enStatus->getKeyName().c_str());
-    infoEn->mIv = const_cast<char*>(enStatus->getIv().c_str());
-    infoEn->mEzKeyVersionName = const_cast<char*>(enStatus->getEzKeyVersionName().c_str());
+    infoEn->mKey = Strdup(enStatus->getKey());
+    infoEn->mKeyName = Strdup(enStatus->getKeyName());
+    infoEn->mIv = Strdup(enStatus->getIv());
+    infoEn->mEzKeyVersionName = Strdup(enStatus->getEzKeyVersionName());
 }
 
 static void ConstructHdfsFileInfo(hdfsFileInfo * infos,

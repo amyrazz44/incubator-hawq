@@ -156,7 +156,7 @@ public:
     * @return true is this is an encryption file
     */
     bool isFileEncrypted() const {
-        return fileEncryption.getKey().length() > 0 || fileEncryption.getKeyName().length() > 0;
+        return strlen(fileEncryption.getKey()) > 0 || strlen(fileEncryption.getKeyName()) > 0;
     }
 
 private:
