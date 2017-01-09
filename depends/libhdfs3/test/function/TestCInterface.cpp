@@ -223,7 +223,8 @@ TEST(TestCInterfaceTDE, TestCreateEnRPC_Success) {
     enInfo = hdfsGetEZForPath(fs, "/TDE");
     ASSERT_TRUE(enInfo != NULL);
     EXPECT_TRUE(enInfo->mKeyName != NULL);
-    std::cout << "----hdfsEncryptionZoneInfo----:" << " KeyName : " << enInfo->mKeyName << " Suite : " << enInfo->mSuite << " CryptoProtocolVersion : " << enInfo->mCryptoProtocolVersion << " Id : " << enInfo->mId << " Path : " << enInfo->mPath << std::endl; 
+    std::cout << "----hdfsEncryptionZoneInfo----:" << " KeyName : " << enInfo->mKeyName << " Suite : " << enInfo->mSuite << " CryptoProtocolVersion : " << enInfo->mCryptoProtocolVersion << " Id : " << enInfo->mId << " Path : " << enInfo->mPath << std::endl;
+    hdfsFreeEncryptionZoneInfo(enInfo, 1); 
     ASSERT_EQ(hdfsDisconnect(fs), 0);
     hdfsFreeBuilder(bld);
 }
