@@ -20,6 +20,7 @@
  * limitations under the License.
  */
 #include "DirectoryIterator.h"
+#include "EncryptionZoneIterator.h"
 #include "Exception.h"
 #include "ExceptionInternal.h"
 #include "FileSystem.h"
@@ -608,6 +609,31 @@ EncryptionZoneInfo FileSystem::getEZForPath(const char * path) {
     }
    
     return impl->filesystem->getEZForPath(path);
+}
+
+/**
+ * list the contents of an encryption zone.
+ * @return Return a iterator to visit all elements in this encryption zone.
+ */
+EncryptionZoneIterator FileSystem::listEncryptionZone()  {
+    if (!impl) {
+        THROW(HdfsIOException, "FileSystem: not connected.");
+    }
+
+    return impl->filesystem->listEncryptionZone();
+}
+
+/**
+* list all the contents of encryption zones.
+* @param id the index of encryption zones.
+* @return Return a vector of encryption zones information..
+*/
+std::vector<EncryptionZoneInfo> FileSystem::listAllEncryptionZoneItems() {
+    if (!impl) {
+        THROW(HdfsIOException, "FileSystem: not connected.");
+    }
+
+    return impl->filesystem->listAllEncryptionZoneItems();
 }
 
 }

@@ -24,6 +24,7 @@
 
 #include "BlockLocation.h"
 #include "DirectoryIterator.h"
+#include "EncryptionZoneIterator.h"
 #include "FileStatus.h"
 #include "FileSystemInter.h"
 #include "FileSystemKey.h"
@@ -492,6 +493,29 @@ public:
      * @return the encryption zone information.
      */
     EncryptionZoneInfo getEZForPath(const char * path);
+
+    /**
+     * Get a partial listing of the indicated encryption zones
+     *
+     * @param id the index of encryption zones.
+     * @param ezl append the returned encryption zones.
+     * @return return true if there are more items.
+     */
+    bool listEncryptionZones(const int64_t id, std::vector<EncryptionZoneInfo> & ezl);
+
+    /**
+     * list the contents of an encryption zone.
+     * @return Return a iterator to visit all elements in this encryption zone.
+     */
+    EncryptionZoneIterator listEncryptionZone();
+
+
+    /**
+     * list all the contents of encryption zones.
+     * @param id the index of encryption zones.
+     * @return Return a vector of encryption zones information..
+     */
+    std::vector<EncryptionZoneInfo> listAllEncryptionZoneItems();
 
 private:
     Config conf;

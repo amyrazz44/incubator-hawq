@@ -1531,6 +1531,32 @@ hdfsEncryptionZoneInfo * hdfsGetEZForPath(hdfsFS fs, const char * path) {
     return NULL;
 }
 
+
+hdfsEncryptionZoneInfo * hdfsListEncryptionZones(hdfsFS fs, int * numEntries) {
+    PARAMETER_ASSERT(fs, NULL, EINVAL);
+    hdfsEncryptionZoneInfo * retval = NULL;
+    int size = 0;
+
+    try {
+        std::vector<Hdfs::EncryptionZoneInfo> enStatus =
+            fs->getFilesystem().listAllEncryptionZoneItems();
+        size = enStatus.size();
+        retval = new hdfsEncryptionZoneInfo[size];
+        memset(retval, 0, sizeof(hdfsEncryptionZoneInfo) * size);
+        ConstructHdfsEncryptionZoneInfo(&retval[0], enStatus);
+        LOG(Hdfs::Internal::WARNING, "The size of hdfsEncryptionZoneInfo is %d", size);
+        *numEntries = size;
+        return retval;
+    } catch (const std::bad_alloc & e) {
+        SetErrorMessage("Out of memory");
+        hdfsFreeEncryptionZoneInfo(retval, size);
+    } catch (...) {
+        SetLastException(Hdfs::current_exception());
+        hdfsFreeEncryptionZoneInfo(retval, size);
+        handleException(Hdfs::current_exception());
+    }
+    return NULL;
+}
 #ifdef __cplusplus
 }
 #endif
