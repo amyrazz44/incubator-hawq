@@ -777,6 +777,14 @@ int hdfsCreateEncryptionZone(hdfsFS fs, const char * path, const char * keyName)
  */
 hdfsEncryptionZoneInfo * hdfsGetEZForPath(hdfsFS fs, const char * path);
 
+/**
+ * hdfsEncryptionZoneInfo -  Get list of all the encryption zones.
+ * hdfsFreeEncryptionZoneInfo should be called to deallocate memory.
+ * @param fs The configured filesystem handle.
+ * @return Returns a dynamically-allocated array of hdfsEncryptionZoneInfo objects;
+ * NULL on error.
+ */
+hdfsEncryptionZoneInfo * hdfsListEncryptionZones(hdfsFS fs, int * numEntries);
 
 #ifdef __cplusplus
 }

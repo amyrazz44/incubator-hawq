@@ -820,7 +820,7 @@ EncryptionZoneInfo NamenodeImpl::getEncryptionZoneInfo(const std::string & src, 
         invoke(RpcCall(true, "getEZForPath", &request, &response));
 
         if (response.has_zone()) {
-            Convert(src, retval, response.zone());
+            Convert(retval, response.zone());
             retval.setPath(src.c_str());
 
             if (exist) {
@@ -842,6 +842,27 @@ EncryptionZoneInfo NamenodeImpl::getEncryptionZoneInfo(const std::string & src, 
     }
 
     return retval;
+}
+
+//Idempotent
+bool NamenodeImpl::listEncryptionZones(const int64_t id, std::vector<EncryptionZoneInfo> & ezl) 
+                                      /* throw (AccessControlException,FileNotFoundException, UnresolvedLinkException, HdfsIOException) */{
+    try {
+        ListEncryptionZonesRequestProto request;
+        ListEncryptionZonesResponseProto response;
+        request.set_id(id);
+        invoke(RpcCall(true, "listEncryptionZones", &request, &response));
+
+        if (response.zones_size() != 0) {
+            Convert(ezl, response);
+            return response.hasmore();
+        }
+
+    } catch (const HdfsRpcServerException & e) {
+        UnWrapper < FileNotFoundException,
+                  UnresolvedLinkException, HdfsIOException > unwrapper(e);
+        unwrapper.unwrap(__FILE__, __LINE__);
+    }
 }
 
 }

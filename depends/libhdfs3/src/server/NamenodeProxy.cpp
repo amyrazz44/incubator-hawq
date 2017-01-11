@@ -540,5 +540,13 @@ EncryptionZoneInfo NamenodeProxy::getEncryptionZoneInfo(const std::string & src,
     return EncryptionZoneInfo();
 }
 
+bool NamenodeProxy::listEncryptionZones(const int64_t id, std::vector<EncryptionZoneInfo> & ezl) {
+    NAMENODE_HA_RETRY_BEGIN();
+    return namenode->listEncryptionZones(id, ezl);
+    NAMENODE_HA_RETRY_END();
+    assert(!"should not reach here");
+    return false;
+}
+
 }
 }

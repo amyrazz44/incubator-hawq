@@ -22,6 +22,7 @@
 #include "Atomic.h"
 #include "BlockLocation.h"
 #include "DirectoryIterator.h"
+#include "EncryptionZoneIterator.h"
 #include "Exception.h"
 #include "ExceptionInternal.h"
 #include "FileStatus.h"
@@ -817,5 +818,50 @@ EncryptionZoneInfo FileSystemImpl::getEZForPath(const char * path) {
 
     return nn->getEncryptionZoneInfo(getStandardPath(path), NULL);
 }
+
+bool FileSystemImpl::listEncryptionZones(const int64_t id,
+                                std::vector<EncryptionZoneInfo> & ezl) {
+    if (!nn) {
+        THROW(HdfsIOException, "FileSystemImpl: not connected.");
+    }
+
+    return nn->listEncryptionZones(id, ezl);
+}
+
+/**
+ * list the contents of an encryption zone.
+ * @return return the encryption zone information.
+ */
+EncryptionZoneIterator FileSystemImpl::listEncryptionZone() {
+    if (!nn) {
+        THROW(HdfsIOException, "FileSystemImpl: not connected.");
+    }
+
+    return EncryptionZoneIterator(this, 0);
+}
+/**
+ * list all the contents of encryption zones.
+ * @param id the index of the encyrption zones.
+ * @return Return a vector of encryption zones information.
+ */
+
+std::vector<EncryptionZoneInfo> FileSystemImpl::listAllEncryptionZoneItems() {
+    if (!nn) {
+        THROW(HdfsIOException, "FileSystemImpl: not connected.");
+    }
+
+    std::vector<EncryptionZoneInfo> retval;
+    retval.clear();
+    int64_t id = 0;
+
+    EncryptionZoneIterator it;
+    it = FileSystemImpl::listEncryptionZone();
+
+    while (it.hasNext()) {
+        retval.push_back(it.getNext());
+    }
+    return retval;
+}
+
 }
 }

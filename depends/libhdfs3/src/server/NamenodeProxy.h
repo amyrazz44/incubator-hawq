@@ -143,6 +143,9 @@ public:
 
     EncryptionZoneInfo getEncryptionZoneInfo(const std::string & src, bool *exist);
 
+    bool listEncryptionZones(const int64_t id, std::vector<EncryptionZoneInfo> & ezl); 
+
+
 private:
     shared_ptr<Namenode> getActiveNamenode(uint32_t & oldValue);
     void failoverToNextNamenode(uint32_t oldValue);
