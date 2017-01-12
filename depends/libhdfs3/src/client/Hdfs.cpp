@@ -1051,7 +1051,7 @@ hdfsFileInfo * hdfsListDirectory(hdfsFS fs, const char * path,
         size = status.size();
         retval = new hdfsFileInfo[size];
         memset(retval, 0, sizeof(hdfsFileInfo) * size);
-        ConstructHdfsFileInfo(&retval[0], status);
+        ConstructHdfsFileInfo(retval, status);
         *numEntries = size;
         return retval;
     } catch (const std::bad_alloc & e) {

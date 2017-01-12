@@ -29,7 +29,7 @@ namespace Hdfs {
 class EncryptionZoneInfo {
 public:
     EncryptionZoneInfo() : 
-		cryptoProtocolVersion(0), suite(0), id(0){
+		suite(0), cryptoProtocolVersion(0), id(0) {
     }
 
     int getSuite() const {
