@@ -147,7 +147,7 @@ TEST_F(TestFileSystem, listDirectory) {
     ASSERT_THROW(it.getNext(), HdfsIOException);
 }
 
-TEST_F(TestFileSystem, listEncryptionZone) {
+TEST_F(TestFileSystem, DISABLED_listEncryptionZone) {
     fs->disconnect();
     fs->connect();
     const int dirs = 201;

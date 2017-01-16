@@ -209,7 +209,7 @@ TEST(TestCInterfaceConfig, TestConfig_Success) {
     hdfsConfStrFree(uri); 
 }
 
-TEST(TestCInterfaceTDE, TestCreateEnRPC_Success) {
+TEST(TestCInterfaceTDE, DISABLED_TestCreateEnRPC_Success) {
     hdfsFS fs = NULL;
     hdfsEncryptionZoneInfo * enInfo = NULL;
     char * uri = NULL;
