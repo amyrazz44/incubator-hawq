@@ -666,6 +666,65 @@ write_retry:
 	return 0;
 }
 
+/*
+ * mk_tmp_file_name
+ *
+ * Called by reader or writer to make the unique tmp file name. 
+ */
+static void mk_tmp_file_name(char* p, int size, int share_id, const char* name)
+{
+	time_t t;
+	int now, random_num;
+	t = time(NULL);
+	now = time(&t);
+	random_num = rand();
+	
+	if (snprintf(p, size,
+			"%s/%s/%s_gpcdb2.sisc_%d_%d_%d_%d_%s_%d_%d",
+			getCurrentTempFilePath, PG_TEMP_FILES_DIR, PG_TEMP_FILE_PREFIX,
+			GetQEIndex(), gp_session_id, gp_command_count, share_id, name,
+			now, random_num 
+            ) > size)
+	{
+		ereport(ERROR, (errmsg("cannot generate path %s/%s/%s_gpcdb2.sisc_%d_%d_%d_%d_%s",
+				getCurrentTempFilePath, PG_TEMP_FILES_DIR, PG_TEMP_FILE_PREFIX,
+				GetQEIndex(), gp_session_id, gp_command_count, share_id, name,
+				now, random_num)));
+	}	
+}
+
+
+/*
+ * is_file_exists
+ *
+ * called by reader or writer to check the tmp file exists or not. 
+ * @param tmp_num return the number of corresponding tmp file. 
+ */ 
+char * is_file_exists(char *pre, char *path, int *tmp_num)
+{
+	DIR *directory;	
+	struct dirent *entry;
+	int ret;
+	char *tmp_file = NULL;
+
+	if((directory = opendir(path)) == NULL)
+		elog(ERROR, "could not open directoty %s", path);
+	else
+	{
+		while((entry = readdir(directory)) != NULL)
+		{
+			ret = strncmp(pre, entry->d_name, strlen(pre));
+			if(ret == 0)
+			{
+				tmp_file = entry->d_name;
+				tmp_num += 1;
+			}
+		}
+		closedir(directory);
+	}
+	return tmp_file;
+}
+
 /* 
  * Readiness (a) synchronization.
  *
@@ -702,6 +761,9 @@ write_retry:
  *
  *  This is a blocking operation.
  */
+
+
+
 void *
 shareinput_reader_waitready(int share_id, PlanGenerator planGen)
 {
@@ -709,6 +771,14 @@ shareinput_reader_waitready(int share_id, PlanGenerator planGen)
 	struct timeval tval;
 	int n;
 	char a;
+	char *pre;	//tmp file prefix.
+	char *path;	//Current path for tmp file.
+	char *file_exists;
+	int timeout_count = 0; 
+	bool flag = false;	//A tag for file exists or not.
+	char *tmp_file = NULL;
+	FILE *fd_tmp;
+	int tmp_num = 0;
 
 	ShareInput_Lk_Context *pctxt = gp_malloc(sizeof(ShareInput_Lk_Context));
 
@@ -731,12 +801,22 @@ shareinput_reader_waitready(int share_id, PlanGenerator planGen)
 	pctxt->readyfd = open(pctxt->lkname_ready, O_RDWR, 0600); 
 	if(pctxt->readyfd < 0)
 		elog(ERROR, "could not open fifo \"%s\": %m", pctxt->lkname_ready);
-	
 	sisc_lockname(pctxt->lkname_done, MAXPGPATH, share_id, "done");
 	create_tmp_fifo(pctxt->lkname_done);
 	pctxt->donefd = open(pctxt->lkname_done, O_RDWR, 0600);
 	if(pctxt->donefd < 0)
+	{
 		elog(ERROR, "could not open fifo \"%s\": %m", pctxt->lkname_done);
+	}
+	else
+	{
+		mk_tmp_file_name(tmp_file, MAXPGPATH, share_id, "reader");
+		fd_tmp = fopen(tmp_file, "w+");
+		if(NULL == fd_tmp)
+			elog(ERROR, "could not create tmp file %s for writer", tmp_file);
+		else
+			unlink(fd_tmp);
+	}
 
 	while(1)
 	{
@@ -793,18 +873,38 @@ shareinput_reader_waitready(int share_id, PlanGenerator planGen)
 		}
 		else if(n==0)
 		{
-			elog(DEBUG1, "SISC READER (shareid=%d, slice=%d): Wait ready time out once",
+			pre = strcat(pctxt->lkname_ready, "writer");
+			path = strcat(getCurrentTempFilePath, PG_TEMP_FILES_DIR);
+			file_exists = is_file_exists(pre, path, &tmp_num);
+			if(file_exists == NULL)
+			{
+				timeout_count += 1;
+				if(timeout_count == 300 || flag == true) //If tmp file never exists or disappeared, reader will no longer waiting for writer
+				{
+					elog(LOG, "SISC READER (shareid=%d, slice=%d): Wait ready time out and break",
+					share_id, currentSliceId);
+					break;
+				}
+			}
+			else
+			{	
+				flag = true;
+			}
+			
+			elog(LOG, "SISC READER (shareid=%d, slice=%d): Wait ready time out once",
 					share_id, currentSliceId);
 		}
 		else
 		{
 			int save_errno = errno;
 			elog(LOG, "SISC READER (shareid=%d, slice=%d): Wait ready try again, errno %d ... ",
-					share_id, currentSliceId, save_errno);
+				share_id, currentSliceId, save_errno);
 		}
 	}
 	return (void *) pctxt;
 }
+
+
 
 /*
  * shareinput_writer_notifyready
@@ -823,7 +923,8 @@ void *
 shareinput_writer_notifyready(int share_id, int xslice, PlanGenerator planGen)
 {
 	int n;
-
+	char * tmp_file = NULL;
+	FILE *fd_tmp;
 	ShareInput_Lk_Context *pctxt = gp_malloc(sizeof(ShareInput_Lk_Context));
 
 	if(!pctxt)
@@ -839,20 +940,25 @@ shareinput_writer_notifyready(int share_id, int xslice, PlanGenerator planGen)
 	pctxt->lkname_done[0] = '\0';
 
 	RegisterXactCallbackOnce(XCallBack_ShareInput_FIFO, pctxt);
-
+ 
 	sisc_lockname(pctxt->lkname_ready, MAXPGPATH, share_id, "ready");
 	create_tmp_fifo(pctxt->lkname_ready);
 	pctxt->del_ready = true;
 	pctxt->readyfd = open(pctxt->lkname_ready, O_RDWR, 0600); 
 	if(pctxt->readyfd < 0)
-	
+	{
 		elog(ERROR, "could not open fifo \"%s\": %m", pctxt->lkname_ready);
-	sisc_lockname(pctxt->lkname_done, MAXPGPATH, share_id, "done");
-	create_tmp_fifo(pctxt->lkname_done);
-	pctxt->del_done = true;
-	pctxt->donefd = open(pctxt->lkname_done, O_RDWR, 0600);
-	if(pctxt->donefd < 0)
-		elog(ERROR, "could not open fifo \"%s\": %m", pctxt->lkname_done);
+	}
+	else
+	{
+		mk_tmp_file_name(tmp_file, MAXPGPATH, share_id, "writer");
+		fd_tmp = fopen(tmp_file, "w+");
+		if(NULL == fd_tmp)
+			elog(ERROR, "could not create tmp file %s for writer", tmp_file);
+		else
+			unlink(fd_tmp);		
+
+	}
 
 	for(n=0; n<xslice; ++n)
 	{
@@ -889,6 +995,12 @@ writer_wait_for_acks(ShareInput_Lk_Context *pctxt, int share_id, int xslice)
 	mpp_fd_set rset;
 	struct timeval tval;
 	char b;
+	char *pre;  //tmp file prefix.
+	char *path; //Current path for tmp file.
+	int tmp_num = 0;
+	int timeout_count = 0;
+	bool flag = false;  //A tag for file exists or not.
+	char *file_exists;
 
 	while(ack_needed > 0)
 	{
@@ -938,6 +1050,23 @@ writer_wait_for_acks(ShareInput_Lk_Context *pctxt, int share_id, int xslice)
 		}
 		else if(numReady==0)
 		{
+			pre = strcat(pctxt->lkname_ready, "writer");
+			path = strcat(getCurrentTempFilePath, PG_TEMP_FILES_DIR);
+			file_exists = is_file_exists(pre, path, &tmp_num);
+			if(tmp_num != xslice)
+			{
+				timeout_count += 1;
+				if(timeout_count == 300 || flag == true) //If tmp file never exists or disappeared, writer will no longer waiting for reader
+				{
+					elog(LOG, "SISC WRITER (shareid=%d, slice=%d): Wait ready time out and break",
+						share_id, currentSliceId);
+					break;
+				}
+			}
+			else
+			{
+				flag = true;
+			}
 			elog(DEBUG1, "SISC WRITER (shareid=%d, slice=%d): Notify ready time out once ... ",
 					share_id, currentSliceId);
 		}
