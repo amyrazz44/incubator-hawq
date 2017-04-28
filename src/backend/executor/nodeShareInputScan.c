@@ -700,28 +700,37 @@ static void mk_tmp_file_name(char* p, int size, int share_id, const char* name)
  * called by reader or writer to check the tmp file exists or not. 
  * @param tmp_num return the number of corresponding tmp file. 
  */ 
-char * is_file_exists(char *pre, char *path, int *tmp_num)
+char ** is_file_exists(char *pre, char *path, int xslice)
 {
 	DIR *directory;	
 	struct dirent *entry;
 	int ret;
-	char *tmp_file = NULL;
+	int index = 0; 
+	char **tmp_file = NULL;	
 
 	if((directory = opendir(path)) == NULL)
+	{
 		elog(ERROR, "could not open directoty %s", path);
+	}
 	else
 	{
+		tmp_file = (char **)gp_malloc(sizeof(char *) * xslice);
+		for(int i=0; i<xslice; i++)
+		{
+			tmp_file[i] = (char *)gp_malloc(sizeof(char) * MAXPGPATH);
+		}
+
 		while((entry = readdir(directory)) != NULL)
 		{
 			ret = strncmp(pre, entry->d_name, strlen(pre));
 			if(ret == 0)
 			{
-				tmp_file = entry->d_name;
-				tmp_num += 1;
+				strcpy(tmp_file[index++], entry->d_name);
 			}
 		}
 		closedir(directory);
 	}
+
 	return tmp_file;
 }
 
@@ -773,7 +782,7 @@ shareinput_reader_waitready(int share_id, PlanGenerator planGen)
 	char a;
 	char *pre;	//tmp file prefix.
 	char *path;	//Current path for tmp file.
-	char *file_exists;
+	char **file_exists;
 	int timeout_count = 0; 
 	bool flag = false;	//A tag for file exists or not.
 	char *tmp_file = NULL;
@@ -810,13 +819,15 @@ shareinput_reader_waitready(int share_id, PlanGenerator planGen)
 	}
 	else
 	{
+		tmp_file = (char *)gp_malloc(sizeof(char) * MAXPGPATH);
 		mk_tmp_file_name(tmp_file, MAXPGPATH, share_id, "reader");
 		fd_tmp = fopen(tmp_file, "w+");
 		if(NULL == fd_tmp)
 			elog(ERROR, "could not create tmp file %s for writer", tmp_file);
 		else
-			unlink(fd_tmp);
+			unlink(tmp_file);
 	}
+	gp_free2(tmp_file, sizeof(char)*MAXPGPATH);
 
 	while(1)
 	{
@@ -875,7 +886,7 @@ shareinput_reader_waitready(int share_id, PlanGenerator planGen)
 		{
 			pre = strcat(pctxt->lkname_ready, "writer");
 			path = strcat(getCurrentTempFilePath, PG_TEMP_FILES_DIR);
-			file_exists = is_file_exists(pre, path, &tmp_num);
+			file_exists = is_file_exists(pre, path, xslice);
 			if(file_exists == NULL)
 			{
 				timeout_count += 1;
@@ -956,7 +967,7 @@ shareinput_writer_notifyready(int share_id, int xslice, PlanGenerator planGen)
 		if(NULL == fd_tmp)
 			elog(ERROR, "could not create tmp file %s for writer", tmp_file);
 		else
-			unlink(fd_tmp);		
+			unlink(tmp_file);		
 
 	}
 
@@ -1000,7 +1011,7 @@ writer_wait_for_acks(ShareInput_Lk_Context *pctxt, int share_id, int xslice)
 	int tmp_num = 0;
 	int timeout_count = 0;
 	bool flag = false;  //A tag for file exists or not.
-	char *file_exists;
+	char **file_exists;
 
 	while(ack_needed > 0)
 	{
@@ -1052,21 +1063,32 @@ writer_wait_for_acks(ShareInput_Lk_Context *pctxt, int share_id, int xslice)
 		{
 			pre = strcat(pctxt->lkname_ready, "writer");
 			path = strcat(getCurrentTempFilePath, PG_TEMP_FILES_DIR);
-			file_exists = is_file_exists(pre, path, &tmp_num);
-			if(tmp_num != xslice)
+			file_exists = is_file_exists(pre, path, xslice);
+			if(file_exists == NULL)
 			{
-				timeout_count += 1;
-				if(timeout_count == 300 || flag == true) //If tmp file never exists or disappeared, writer will no longer waiting for reader
+				timout_count++;
+			}
+			else 
+			{
+				for(int i=0; i<xslice; i++)	
 				{
-					elog(LOG, "SISC WRITER (shareid=%d, slice=%d): Wait ready time out and break",
-						share_id, currentSliceId);
-					break;
+					if(strlen(file_exists[i]) != 0)
+						tmp_num++;
 				}
+				if(tmp_num != xslice)
+				{
+					timeout_count += 1;
+					if(timeout_count == 300 || flag == true) //If tmp file never exists or disappeared, writer will no longer waiting for reader
+					{
+						elog(LOG, "SISC WRITER (shareid=%d, slice=%d): Wait ready time out and break",
+							share_id, currentSliceId);
+						break;
+					}
+				}
+				else
+					flag = true;
 			}
-			else
-			{
-				flag = true;
-			}
+
 			elog(DEBUG1, "SISC WRITER (shareid=%d, slice=%d): Notify ready time out once ... ",
 					share_id, currentSliceId);
 		}
@@ -1077,6 +1099,10 @@ writer_wait_for_acks(ShareInput_Lk_Context *pctxt, int share_id, int xslice)
 					share_id, currentSliceId, save_errno);
 			/*if error(except EINTR) happens in select, we just return to avoid endless loop*/
 			if(errno != EINTR){
+				for(int i=0; i<xslice; i++)
+				{
+					gp_free2(file_exists[i], sizeof(char)*MAXPGPATH);
+				}
 				return;
 			}
 		}
