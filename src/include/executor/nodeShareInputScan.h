@@ -30,6 +30,7 @@
 #define NODESHAREINPUTSCAN_H
 
 #include "nodes/execnodes.h"
+
 extern int ExecCountSlotsShareInputScan(ShareInputScan* node);
 extern ShareInputScanState *ExecInitShareInputScan(ShareInputScan *node, EState *estate, int eflags);
 extern TupleTableSlot *ExecShareInputScan(ShareInputScanState *node);
@@ -52,4 +53,6 @@ static inline gpmon_packet_t * GpmonPktFromShareInputState(ShareInputScanState *
 	return &node->ss.ps.gpmon_pkt;
 }
 
+extern void mk_tmp_file_name(char* p, int size, int share_id, const char* name);
+extern char **is_file_exists(char *pre, char *path, int *file_num);
 #endif   /* NODESHAREINPUTSCAN_H */

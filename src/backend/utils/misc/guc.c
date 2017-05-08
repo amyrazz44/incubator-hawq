@@ -668,6 +668,8 @@ bool		gp_cte_sharing = false;
 
 char	   *gp_idf_deduplicate_str;
 
+int share_input_scan_wait_tmpfile_timeout;
+
 /* gp_disable_catalog_access_on_segment */
 bool gp_disable_catalog_access_on_segment = false;
 
@@ -6685,6 +6687,15 @@ static struct config_int ConfigureNamesInt[] =
 		&metadata_cache_max_hdfs_file_num,
 		524288, 32768, 8388608, NULL, NULL
 	},
+	{
+		{"share_input_scan_wait_tmpfile_timeout", PGC_USERSET, DEVELOPER_OPTIONS,
+			gettext_noop("timeout for wait tmp file."),
+			NULL
+		},
+		&share_input_scan_wait_tmpfile_timeout,
+		300, 1, 65536, NULL, NULL
+	},
+
 
 	/* End-of-list marker */
 	{
@@ -8348,7 +8359,6 @@ static struct config_string ConfigureNamesString[] =
 		&metadata_cache_testfile,
 		NULL, NULL, NULL
 	},
-
 
 	/* End-of-list marker */
 	{

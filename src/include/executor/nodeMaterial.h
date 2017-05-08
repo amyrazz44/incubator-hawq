@@ -15,6 +15,7 @@
 #define NODEMATERIAL_H
 
 #include "nodes/execnodes.h"
+#include "executor/nodeShareInputScan.h"
 
 extern int	ExecCountSlotsMaterial(Material *node);
 extern MaterialState *ExecInitMaterial(Material *node, EState *estate, int eflags);
@@ -24,6 +25,7 @@ extern void ExecMaterialMarkPos(MaterialState *node);
 extern void ExecMaterialRestrPos(MaterialState *node);
 extern void ExecMaterialReScan(MaterialState *node, ExprContext *exprCtxt);
 extern void ExecEagerFreeMaterial(MaterialState *node);
+extern void mkTempFileForWriter(int size, int share_id, char * name);
 
 enum {
     GPMON_MATERIAL_RESCAN = GPMON_QEXEC_M_NODE_START,

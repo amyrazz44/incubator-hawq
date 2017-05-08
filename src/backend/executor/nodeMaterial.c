@@ -41,14 +41,16 @@
 #include "postgres.h"
 
 #include "executor/executor.h"
-#include "executor/nodeMaterial.h"
 #include "executor/instrument.h"        /* Instrumentation */
 #include "utils/tuplestorenew.h"
-
+#include "executor/nodeMaterial.h"
 #include "miscadmin.h"
 
 #include "cdb/cdbvars.h"
+#include "postmaster/primary_mirror_mode.h"
 
+
+int fd_tmp_writer = -1;
 static void ExecMaterialExplainEnd(PlanState *planstate, struct StringInfoData *buf);
 static void ExecChildRescan(MaterialState *node, ExprContext *exprCtxt);
 static void DestroyTupleStore(MaterialState *node);
@@ -115,6 +117,7 @@ ExecMaterial(MaterialState *node)
 
 			ts = ntuplestore_create_readerwriter(rwfile_prefix, PlanStateOperatorMemKB((PlanState *)node) * 1024, true);
 			tsa = ntuplestore_create_accessor(ts, true);
+			mkTempFileForWriter(MAXPGPATH, ma->share_id, "readywriter");
 		}
 		else
 		{
@@ -247,6 +250,8 @@ ExecMaterial(MaterialState *node)
 
 					node->share_lk_ctxt = shareinput_writer_notifyready(ma->share_id, ma->nsharer_xslice,
 							estate->es_plannedstmt->planGen);
+					if(fd_tmp_writer > 0)
+						close(fd_tmp_writer);
 				}
 			}
 			return NULL;
@@ -759,3 +764,30 @@ ExecEagerFreeMaterial(MaterialState *node)
 	}
 }
 
+
+/*
+ * mkTempFileForWriter
+ * 
+ * Create a unique tmp file for writer. Then use flock's unblock way to lock the tmp file.
+ * We can make sure the tmp file will be locked forerver until the writer process has quit.
+ */
+void mkTempFileForWriter(int size, int share_id, char * name)
+{
+	char *tmp_file;
+	int lock;
+
+	tmp_file = (char *)palloc(sizeof(char) * MAXPGPATH);
+	mk_tmp_file_name(tmp_file, size, share_id, name);
+	elog(DEBUG3, "tmp file for writer is %s", tmp_file);
+	fd_tmp_writer = open(tmp_file, O_CREAT, S_IRWXU);
+	if(fd_tmp_writer < 0)
+	{
+		elog(ERROR, "could not create tmp file %s for writer", tmp_file);
+	}
+	lock = flock(fd_tmp_writer, LOCK_EX | LOCK_NB);
+	if(lock == -1)
+		elog(DEBUG3, "could not lock tmp file  \"%s\": %m", tmp_file);
+	else if(lock == 0)
+		elog(DEBUG3, "successfully locked tmp file  \"%s\": %m", tmp_file);
+	pfree(tmp_file);
+}
