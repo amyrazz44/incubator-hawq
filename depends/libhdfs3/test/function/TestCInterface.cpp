@@ -241,6 +241,47 @@ TEST(TestCInterfaceTDE, DISABLED_TestCreateEnRPC_Success) {
     hdfsFreeBuilder(bld);
 }
 
+TEST(TestCInterfaceTDE, TestAppendWithTDE_Success) {
+    hdfsFS fs = NULL;
+    hdfsEncryptionZoneInfo * enInfo = NULL;
+    char * uri = NULL;
+    setenv("LIBHDFS3_CONF", "function-test.xml", 1);
+    struct hdfsBuilder * bld = hdfsNewBuilder();
+    assert(bld != NULL);
+    hdfsBuilderSetNameNode(bld, "default");
+    fs = hdfsBuilderConnect(bld);
+    ASSERT_TRUE(fs != NULL);
+    system("hadoop fs -rmr /TDE");
+    system("hadoop key delete keytde4append -f");
+    system("hadoop key create keytde4append");
+    system("hadoop fs -mkdir /TDE");
+	ASSERT_EQ(0, hdfsCreateEncryptionZone(fs, "/TDE", "keytde4append")); 
+    enInfo = hdfsGetEZForPath(fs, "/TDE");
+    ASSERT_TRUE(enInfo != NULL);
+    EXPECT_TRUE(enInfo->mKeyName != NULL);
+    hdfsFreeEncryptionZoneInfo(enInfo, 1);
+	const char *tdefile = "/TDE/testfile"; 
+    ASSERT_TRUE(CreateFile(fs, tdefile, 0, 0));
+
+	const char *buffer = "hello world";
+    hdfsFile out = hdfsOpenFile(fs, tdefile, O_WRONLY, 0, 0, 0);
+    ASSERT_TRUE(out != NULL) << hdfsGetLastError();
+	EXPECT_EQ(strlen(buffer), hdfsWrite(fs, out, (const void *)buffer, strlen(buffer))) 
+			<< hdfsGetLastError();
+	hdfsCloseFile(fs, out); 
+	FILE *file = popen("hadoop fs -cat /TDE/testfile", "r");
+	char bufGets[128];
+	while(fgets(bufGets, sizeof(bufGets), file))
+	{
+	}
+	pclose(file);	
+	ASSERT_STREQ(bufGets, buffer);
+    system("hadoop fs -rmr /TDE");
+    system("hadoop key delete keytde4append");
+	ASSERT_EQ(hdfsDisconnect(fs), 0);
+    hdfsFreeBuilder(bld);
+}
+
 TEST(TestErrorMessage, TestErrorMessage) {
     EXPECT_NO_THROW(hdfsGetLastError());
     hdfsChown(NULL, TEST_HDFS_PREFIX, NULL, NULL);
