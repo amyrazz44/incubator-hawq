@@ -19,27 +19,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "Permission.h"
 
-#include "Exception.h"
-#include "ExceptionInternal.h"
+#include "EncryptionService.h"
 
 namespace Hdfs {
 
-Permission::Permission(uint16_t mode) {
-	uint16_t fileEncryptionBit = (1 << 13);
-	bool isFileEncryption = (((mode & fileEncryptionBit) != 0) ? true : false);
-
-    if (!isFileEncryption && mode >> 10) {
-        THROW(InvalidParameter,
-              "Invalid parameter: cannot convert %u to \"Permission\"",
-              static_cast<unsigned int>(mode));
-    }
-
-    userAction = (Action)((mode >> 6) & 7);
-    groupAction = (Action)((mode >> 3) & 7);
-    otherAction = (Action)(mode & 7);
-    stickyBit = (((mode >> 9) & 1) == 1);
+const char * EncryptionService::encode(const char * buffer, int64_t size)
+{
+	return "encode hello world";
+}
+	
+const char * EncryptionService::decode(const char * buffer, int64_t size)
+{
+	return "decode hello world";
 }
 
+	
 }
+

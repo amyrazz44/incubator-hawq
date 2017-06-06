@@ -35,6 +35,7 @@
 #include "server/LocatedBlock.h"
 #include "SessionConfig.h"
 #include "Thread.h"
+#include "EncryptionService.h"
 #ifdef MOCK
 #include "PipelineStub.h"
 #endif
@@ -104,6 +105,15 @@ public:
      */
     void setError(const exception_ptr & error);
 
+    /**
+     * Get EncryptionService.
+     */
+  	shared_ptr<EncryptionService> getEncryptionService();
+
+	/**
+	 * Set EncryptionService.
+	 */
+	void setEncryptionService(shared_ptr<EncryptionService> encryptionService);
 private:
     void appendChunkToPacket(const char * buf, int size);
     void appendInternal(const char * buf, int64_t size);
@@ -153,6 +163,8 @@ private:
     std::vector<char> buffer;
     steady_clock::time_point lastSend;
     //thread heartBeatSender;
+	FileStatus fileStatus;
+	shared_ptr<EncryptionService> encryptionService;
 
     friend class Pipeline;
 #ifdef MOCK

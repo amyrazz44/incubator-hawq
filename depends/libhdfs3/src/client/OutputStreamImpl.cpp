@@ -43,7 +43,7 @@ OutputStreamImpl::OutputStreamImpl() :
 /*heartBeatStop(true),*/ closed(true), isAppend(false), syncBlock(false), checksumSize(0), chunkSize(
         0), chunksPerPacket(0), closeTimeout(0), heartBeatInterval(0), packetSize(0), position(
             0), replication(0), blockSize(0), bytesWritten(0), cursor(0), lastFlushed(
-                0), nextSeqNo(0), packets(0) {
+                0), nextSeqNo(0), packets(0), encryptionService(NULL) {
     if (HWCrc32c::available()) {
         checksum = shared_ptr < Checksum > (new HWCrc32c());
     } else {
@@ -85,6 +85,15 @@ void OutputStreamImpl::setError(const exception_ptr & error) {
     } catch (...) {
     }
 }
+
+shared_ptr<EncryptionService> OutputStreamImpl::getEncryptionService(){
+	return encryptionService;
+}
+
+void OutputStreamImpl::setEncryptionService(shared_ptr<EncryptionService> encryptionService){
+	this->encryptionService = encryptionService;
+}
+
 
 /**
  * To create or append a file.
@@ -236,6 +245,12 @@ void OutputStreamImpl::openInternal(shared_ptr<FileSystemInter> fs, const char *
 
     try {
         if (flag & Append) {
+			fileStatus = fs->getFileStatus(this->path.c_str());
+			if (fileStatus.isFileEncrypted()) {
+				if (encryptionService == NULL) {
+					encryptionService = shared_ptr <EncryptionService> (new EncryptionService());
+				}
+			} 	
             initAppend();
             LeaseRenewer::GetLeaseRenewer().StartRenew(filesystem);
             return;
@@ -278,7 +293,10 @@ void OutputStreamImpl::append(const char * buf, int64_t size) {
 
 void OutputStreamImpl::appendInternal(const char * buf, int64_t size) {
     int64_t todo = size;
-
+	if (fileStatus.isFileEncrypted()) {
+		buf = encryptionService->encode(buf, size);
+		
+	}
     while (todo > 0) {
         int batch = buffer.size() - position;
         batch = batch < todo ? batch : static_cast<int>(todo);

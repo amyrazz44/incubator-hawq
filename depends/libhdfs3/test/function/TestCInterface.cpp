@@ -264,7 +264,7 @@ TEST(TestCInterfaceTDE, TestAppendWithTDE_Success) {
     ASSERT_TRUE(CreateFile(fs, tdefile, 0, 0));
 
 	const char *buffer = "hello world";
-    hdfsFile out = hdfsOpenFile(fs, tdefile, O_WRONLY, 0, 0, 0);
+    hdfsFile out = hdfsOpenFile(fs, tdefile, O_WRONLY | O_APPEND, 0, 0, 0);
     ASSERT_TRUE(out != NULL) << hdfsGetLastError();
 	EXPECT_EQ(strlen(buffer), hdfsWrite(fs, out, (const void *)buffer, strlen(buffer))) 
 			<< hdfsGetLastError();

@@ -1,5 +1,5 @@
 /********************************************************************
- * 2014 -
+ * 2014 - 
  * open source under Apache License Version 2.0
  ********************************************************************/
 /**
@@ -19,27 +19,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "Permission.h"
+#ifndef _HDFS_LIBHDFS3_MOCK_ENCRYPTIONSERVICE_H_
+#define _HDFS_LIBHDFS3_MOCK_ENCRYPTIONSERVICE_H_
 
-#include "Exception.h"
-#include "ExceptionInternal.h"
+#include "gmock/gmock.h"
 
-namespace Hdfs {
+#include "client/EncryptionService.h"
 
-Permission::Permission(uint16_t mode) {
-	uint16_t fileEncryptionBit = (1 << 13);
-	bool isFileEncryption = (((mode & fileEncryptionBit) != 0) ? true : false);
+class MockEncryptionService: public Hdfs::EncryptionService {
+public:
+  MOCK_METHOD2(encode, const char*(const char * buffer,int64_t size));
+  MOCK_METHOD2(decode, const char*(const char * buffer,int64_t size));
+};
 
-    if (!isFileEncryption && mode >> 10) {
-        THROW(InvalidParameter,
-              "Invalid parameter: cannot convert %u to \"Permission\"",
-              static_cast<unsigned int>(mode));
-    }
-
-    userAction = (Action)((mode >> 6) & 7);
-    groupAction = (Action)((mode >> 3) & 7);
-    otherAction = (Action)(mode & 7);
-    stickyBit = (((mode >> 9) & 1) == 1);
-}
-
-}
+#endif /* _HDFS_LIBHDFS3_MOCK_ENCRYPTIONSERVICE_H_ */

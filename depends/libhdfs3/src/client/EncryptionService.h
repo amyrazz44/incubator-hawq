@@ -19,27 +19,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "Permission.h"
+#ifndef _HDFS_LIBHDFS3_CLIENT_ENCRYPTIONSERVICE_H_
+#define _HDFS_LIBHDFS3_CLIENT_ENCRYPTIONSERVICE_H_
 
-#include "Exception.h"
-#include "ExceptionInternal.h"
+#include <string>
 
 namespace Hdfs {
 
-Permission::Permission(uint16_t mode) {
-	uint16_t fileEncryptionBit = (1 << 13);
-	bool isFileEncryption = (((mode & fileEncryptionBit) != 0) ? true : false);
-
-    if (!isFileEncryption && mode >> 10) {
-        THROW(InvalidParameter,
-              "Invalid parameter: cannot convert %u to \"Permission\"",
-              static_cast<unsigned int>(mode));
+class EncryptionService {
+public:
+    EncryptionService(){ 
     }
 
-    userAction = (Action)((mode >> 6) & 7);
-    groupAction = (Action)((mode >> 3) & 7);
-    otherAction = (Action)(mode & 7);
-    stickyBit = (((mode >> 9) & 1) == 1);
-}
+	virtual ~EncryptionService(){
+	}
+
+	virtual const char * encode(const char * buffer, int64_t size);
+	
+	virtual const char * decode(const char * buffer, int64_t size);
+
+	
+};
 
 }
+#endif
