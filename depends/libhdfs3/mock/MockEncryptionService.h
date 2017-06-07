@@ -28,8 +28,8 @@
 
 class MockEncryptionService: public Hdfs::EncryptionService {
 public:
-  MOCK_METHOD2(encode, const char*(const char * buffer,int64_t size));
-  MOCK_METHOD2(decode, const char*(const char * buffer,int64_t size));
+  MOCK_METHOD2(encode, std::string(const char * buffer,int64_t size));
+  MOCK_METHOD2(decode, std::string(const char * buffer,int64_t size));
 };
 
 #endif /* _HDFS_LIBHDFS3_MOCK_ENCRYPTIONSERVICE_H_ */

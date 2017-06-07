@@ -294,7 +294,7 @@ void OutputStreamImpl::append(const char * buf, int64_t size) {
 void OutputStreamImpl::appendInternal(const char * buf, int64_t size) {
     int64_t todo = size;
 	if (fileStatus.isFileEncrypted()) {
-		buf = encryptionService->encode(buf, size);
+		buf = encryptionService->encode(buf, size).c_str();
 		
 	}
     while (todo > 0) {

@@ -21,17 +21,85 @@
  */
 
 #include "EncryptionService.h"
+#include "Logger.h"
+
+using namespace Hdfs::Internal;
 
 namespace Hdfs {
 
-const char * EncryptionService::encode(const char * buffer, int64_t size)
+EncryptionService::EncryptionService()
 {
-	return "encode hello world";
+	// 0. init global status
+	ERR_load_crypto_strings();
+	OpenSSL_add_all_algorithms();
+	OPENSSL_config(NULL);
+
+	// 1. create cipher context
+	encryptCtx = EVP_CIPHER_CTX_new();		
+	decryptCtx = EVP_CIPHER_CTX_new();	
+	cipher = NULL;	
+}
+
+void EncryptionService::setKey(std::string key)
+{
+	this->key = key;
+}
+
+void EncryptionService::setIV(std::string iv)
+{
+	this->iv = iv;
+}
+
+std::string EncryptionService::endecInternal(const char * buffer, int64_t size, bool enc)
+{
+	LOG(INFO, "endecInternal info. key:%s iv:%s buffer:%s size:%ld is_encode:%b", key.c_str(), iv.c_str(), buffer, size, enc);
+	// OPENSSL 
+	
+	// 0. init global status
+
+	
+	// 1. create cipher context
+
+
+	// 2. select cipher method
+	if (key.length() == 32) {
+		cipher = EVP_aes_256_ctr();	
+	} else if (key.length() == 16) {
+		cipher = EVP_aes_128_ctr();
+	} else {
+		cipher = EVP_aes_192_ctr();
+	}
+
+	// 3. init cipher context with 
+		// 3.1 cipher method		based on key length
+		// 3.2 encrypted key		from KMS
+		// 3.3 IV					from KMS
+	int encode = enc ? 1 : 0;
+	if (!EVP_CipherInit_ex(encryptCtx, cipher, NULL, (const unsigned char *)key.c_str(), (const unsigned char *)iv.c_str(), encode)) {
+		LOG(INFO, "EVP_CipherInit_ex failed");
+	}
+	LOG(INFO, "EVP_CipherInit_ex successfully");
+
+	// 4. encode/decode buffer within cipher context
+	std::string result;
+	int len = 0;
+	if (!EVP_CipherUpdate(encryptCtx, (unsigned char *)&result[0], &len, (const unsigned char *)buffer, size)) {
+		LOG(INFO, "EVP_CipherUpdate failed");
+
+	}
+	LOG(INFO, "EVP_CipherUpdate successfully, result:%s, len:%d", result.c_str(), len);
+
+	return result;
+}
+
+std::string EncryptionService::encode(const char * buffer, int64_t size)
+{
+	return endecInternal(buffer, size, true);
 }
 	
-const char * EncryptionService::decode(const char * buffer, int64_t size)
+std::string EncryptionService::decode(const char * buffer, int64_t size)
 {
-	return "decode hello world";
+	return endecInternal(buffer, size, false);
 }
 
 	

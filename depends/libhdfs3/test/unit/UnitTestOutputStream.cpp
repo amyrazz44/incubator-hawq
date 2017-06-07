@@ -395,7 +395,8 @@ TEST_F(TestOutputStream, appendEncryption_Success) {
     EXPECT_CALL(*pipelineStub, send(_)).Times(4);
     EXPECT_CALL(*pipelineStub, close(_)).Times(2).WillOnce(Return(lastBlock)).WillOnce(Return(lastBlock));
     EXPECT_CALL(*fs, fsync(_)).Times(2);
-	EXPECT_CALL(*es, encode(_,_)).Times(1).WillOnce(Return(buffer));
+	std::string bufferEn;
+	EXPECT_CALL(*es, encode(_,_)).Times(1).WillOnce(Return(bufferEn));
     EXPECT_NO_THROW(ous.append(buffer, sizeof(buffer)));
 	EXPECT_CALL(*pipelineStub, close(_)).Times(1).WillOnce(Return(lastBlock));
     EXPECT_CALL(*fs, fsync(_)).Times(1);

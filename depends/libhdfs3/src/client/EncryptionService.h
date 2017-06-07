@@ -24,21 +24,36 @@
 
 #include <string>
 
+#include "openssl/conf.h"
+#include "openssl/evp.h"
+#include "openssl/err.h"
+
+
 namespace Hdfs {
 
 class EncryptionService {
 public:
-    EncryptionService(){ 
-    }
+    EncryptionService();
 
 	virtual ~EncryptionService(){
 	}
 
-	virtual const char * encode(const char * buffer, int64_t size);
+	virtual std::string encode(const char * buffer, int64_t size);
 	
-	virtual const char * decode(const char * buffer, int64_t size);
+	virtual std::string decode(const char * buffer, int64_t size);
 
-	
+	std::string endecInternal(const char *buffer, int64_t size, bool enc);
+
+	void setKey(std::string key);
+	void setIV(std::string	iv);
+
+private:
+	std::string 	key;
+	std::string		iv;
+
+	EVP_CIPHER_CTX		*encryptCtx;	
+	EVP_CIPHER_CTX		*decryptCtx;
+	const EVP_CIPHER	*cipher;	
 };
 
 }
