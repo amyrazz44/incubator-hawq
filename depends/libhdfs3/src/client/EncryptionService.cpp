@@ -27,8 +27,9 @@ using namespace Hdfs::Internal;
 
 namespace Hdfs {
 
-EncryptionService::EncryptionService()
+EncryptionService::EncryptionService(FileEncryptionInfo *encryptionInfo, KmsService *ks)
 {
+		
 	// 0. init global status
 	ERR_load_crypto_strings();
 	OpenSSL_add_all_algorithms();
@@ -38,20 +39,20 @@ EncryptionService::EncryptionService()
 	encryptCtx = EVP_CIPHER_CTX_new();		
 	decryptCtx = EVP_CIPHER_CTX_new();	
 	cipher = NULL;	
+
+	this->encryptionInfo = encryptionInfo;
+	this->ks = ks;
 }
 
-void EncryptionService::setKey(std::string key)
+EncryptionService::EncryptionService(FileEncryptionInfo *encryptionInfo) : EncryptionService(encryptionInfo, NULL)
 {
-	this->key = key;
-}
-
-void EncryptionService::setIV(std::string iv)
-{
-	this->iv = iv;
+	this->ks = new KmsService(new KmsHttpClient); 
 }
 
 std::string EncryptionService::endecInternal(const char * buffer, int64_t size, bool enc)
 {
+	std::string key = encryptionInfo->getKey();
+	std::string iv = encryptionInfo->getIv();
 	LOG(INFO, "endecInternal info. key:%s iv:%s buffer:%s size:%ld is_encode:%b", key.c_str(), iv.c_str(), buffer, size, enc);
 	// OPENSSL 
 	
@@ -59,7 +60,7 @@ std::string EncryptionService::endecInternal(const char * buffer, int64_t size, 
 
 	
 	// 1. create cipher context
-
+	key = ks->getKey(*encryptionInfo);
 
 	// 2. select cipher method
 	if (key.length() == 32) {

@@ -248,7 +248,7 @@ void OutputStreamImpl::openInternal(shared_ptr<FileSystemInter> fs, const char *
 			fileStatus = fs->getFileStatus(this->path.c_str());
 			if (fileStatus.isFileEncrypted()) {
 				if (encryptionService == NULL) {
-					encryptionService = shared_ptr <EncryptionService> (new EncryptionService());
+					encryptionService = shared_ptr <EncryptionService> (new EncryptionService(fileStatus.getFileEncryption()));
 				}
 			} 	
             initAppend();

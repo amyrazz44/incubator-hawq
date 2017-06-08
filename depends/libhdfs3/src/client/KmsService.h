@@ -19,39 +19,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef _HDFS_LIBHDFS3_CLIENT_ENCRYPTIONSERVICE_H_
-#define _HDFS_LIBHDFS3_CLIENT_ENCRYPTIONSERVICE_H_
+#ifndef _HDFS_LIBHDFS3_CLIENT_KMSSERVICE_H_
+#define _HDFS_LIBHDFS3_CLIENT_KMSSERVICE_H_
 
 #include <string>
+#include <gsasl.h>
 
 #include "openssl/conf.h"
 #include "openssl/evp.h"
 #include "openssl/err.h"
 #include "FileEncryptionInfo.h"
-#include "KmsService.h"
+#include "KmsHttpClient.h"
+#include <vector>
 
 namespace Hdfs {
 
-class EncryptionService {
+class KmsService {
 public:
-    EncryptionService(FileEncryptionInfo *encryptionInfo, KmsService *ks);
-	EncryptionService(FileEncryptionInfo *encryptionInfo);
+    KmsService(KmsHttpClient *khc);
 
-	virtual ~EncryptionService(){
+	virtual ~KmsService(){
 	}
 
-	virtual std::string encode(const char * buffer, int64_t size);
-	
-	virtual std::string decode(const char * buffer, int64_t size);
+	std::string getKey(FileEncryptionInfo &encryptionInfo);
 
+	std::string getKmsUrl(const std::string &key);
+	const std::vector<std::string>& getKmsHeaders();
+	std::string getBody(const std::string &name, const std::string &iv, const std::string &material);
 
 private:
-	FileEncryptionInfo 	*encryptionInfo;
-	KmsService			*ks;
-	EVP_CIPHER_CTX		*encryptCtx;	
-	EVP_CIPHER_CTX		*decryptCtx;
-	const EVP_CIPHER	*cipher;	
-	std::string endecInternal(const char *buffer, int64_t size, bool enc);
+	//std::string toJson(ptree &data);
+	//ptree		fromJson(const std::string &data);
+	std::string	base64Encode(const std::string &data);
+	std::string	base64Decode(const std::string &data);
+
+	FileEncryptionInfo *encryptionInfo;
+	KmsHttpClient 		*khc;
 };
 
 }

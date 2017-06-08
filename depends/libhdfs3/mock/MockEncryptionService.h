@@ -28,6 +28,7 @@
 
 class MockEncryptionService: public Hdfs::EncryptionService {
 public:
+  MockEncryptionService(FileEncryptionInfo *encryptionInfo) : EncryptionService(encryptionInfo){}
   MOCK_METHOD2(encode, std::string(const char * buffer,int64_t size));
   MOCK_METHOD2(decode, std::string(const char * buffer,int64_t size));
 };

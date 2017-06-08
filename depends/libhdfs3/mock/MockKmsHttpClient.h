@@ -1,5 +1,5 @@
 /********************************************************************
- * 2014 -
+ * 2014 - 
  * open source under Apache License Version 2.0
  ********************************************************************/
 /**
@@ -19,40 +19,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef _HDFS_LIBHDFS3_CLIENT_ENCRYPTIONSERVICE_H_
-#define _HDFS_LIBHDFS3_CLIENT_ENCRYPTIONSERVICE_H_
+#ifndef _HDFS_LIBHDFS3_MOCK_KMSHTTPCLIENT_H_
+#define _HDFS_LIBHDFS3_MOCK_KMSHTTPCLIENT_H_
 
-#include <string>
+#include "gmock/gmock.h"
 
-#include "openssl/conf.h"
-#include "openssl/evp.h"
-#include "openssl/err.h"
-#include "FileEncryptionInfo.h"
-#include "KmsService.h"
+#include "client/KmsHttpClient.h"
+#include "client/KmsService.h"
 
-namespace Hdfs {
-
-class EncryptionService {
+class MockKmsHttpClient: public Hdfs::KmsHttpClient {
 public:
-    EncryptionService(FileEncryptionInfo *encryptionInfo, KmsService *ks);
-	EncryptionService(FileEncryptionInfo *encryptionInfo);
+  MOCK_METHOD3(post, std::string(std::string url, const std::vector<std::string> &headers, std::string body));
+  std::string getPostResult() {
+	KmsService ks(this);
+	return ks.getBody("testname", "testiv", "testmaterial");	
+  }
 
-	virtual ~EncryptionService(){
-	}
-
-	virtual std::string encode(const char * buffer, int64_t size);
-	
-	virtual std::string decode(const char * buffer, int64_t size);
-
-
-private:
-	FileEncryptionInfo 	*encryptionInfo;
-	KmsService			*ks;
-	EVP_CIPHER_CTX		*encryptCtx;	
-	EVP_CIPHER_CTX		*decryptCtx;
-	const EVP_CIPHER	*cipher;	
-	std::string endecInternal(const char *buffer, int64_t size, bool enc);
 };
 
-}
-#endif
+#endif /* _HDFS_LIBHDFS3_MOCK_KMSHTTPCLIENT_H_ */

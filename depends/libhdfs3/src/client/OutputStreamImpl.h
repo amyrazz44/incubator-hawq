@@ -164,7 +164,7 @@ private:
     steady_clock::time_point lastSend;
     //thread heartBeatSender;
 	FileStatus fileStatus;
-	shared_ptr<EncryptionService> encryptionService;
+	shared_ptr<EncryptionService> 	encryptionService;
 
     friend class Pipeline;
 #ifdef MOCK

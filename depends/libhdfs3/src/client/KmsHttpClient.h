@@ -19,39 +19,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef _HDFS_LIBHDFS3_CLIENT_ENCRYPTIONSERVICE_H_
-#define _HDFS_LIBHDFS3_CLIENT_ENCRYPTIONSERVICE_H_
+#ifndef _HDFS_LIBHDFS3_CLIENT_KMSHTTPCLIENT_H_
+#define _HDFS_LIBHDFS3_CLIENT_KMSHTTPCLIENT_H_
 
 #include <string>
-
-#include "openssl/conf.h"
-#include "openssl/evp.h"
-#include "openssl/err.h"
-#include "FileEncryptionInfo.h"
-#include "KmsService.h"
+#include <vector>
+#include <curl/curl.h>
 
 namespace Hdfs {
 
-class EncryptionService {
+class KmsHttpClient {
 public:
-    EncryptionService(FileEncryptionInfo *encryptionInfo, KmsService *ks);
-	EncryptionService(FileEncryptionInfo *encryptionInfo);
+    KmsHttpClient();
 
-	virtual ~EncryptionService(){
+	virtual ~KmsHttpClient();
+
+	virtual std::string post(std::string url, const std::vector<std::string> &headers, std::string body);
+
+	const std::vector<std::string>& getDefaultHeaders() {
+		headers.push_back("Content-Type: application/json");
+		headers.push_back("Accept: *");
+		return headers;
 	}
 
-	virtual std::string encode(const char * buffer, int64_t size);
-	
-	virtual std::string decode(const char * buffer, int64_t size);
-
+	std::string escape(const std::string data) {
+		return curl_easy_escape(curl, data.c_str(), data.length());
+	}
 
 private:
-	FileEncryptionInfo 	*encryptionInfo;
-	KmsService			*ks;
-	EVP_CIPHER_CTX		*encryptCtx;	
-	EVP_CIPHER_CTX		*decryptCtx;
-	const EVP_CIPHER	*cipher;	
-	std::string endecInternal(const char *buffer, int64_t size, bool enc);
+	std::vector<std::string> headers;	
+	CURL *curl;
+	struct curl_slist *list;
+	std::string response;
 };
 
 }

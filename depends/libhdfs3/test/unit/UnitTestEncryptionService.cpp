@@ -32,6 +32,7 @@
 #include "DateTime.h"
 #include "MockFileSystemInter.h"
 #include "MockEncryptionService.h"
+#include "MockKmsHttpClient.h"
 #include "MockLeaseRenewer.h"
 #include "MockPipeline.h"
 #include "NamenodeStub.h"
@@ -40,6 +41,7 @@
 #include "TestUtil.h"
 #include "Thread.h"
 #include "XmlConfig.h"
+#include "client/KmsService.h"
 
 #include <string>
 
@@ -63,8 +65,32 @@ protected:
 };
 
 
+TEST_F(TestEncryptionService, KmsGetKey_Success) {
+	FileEncryptionInfo encryptionInfo;
+	encryptionInfo.setKeyName("KmsName");
+    encryptionInfo.setIv("KmsIv");
+    encryptionInfo.setEzKeyVersionName("KmsVersionName");
+	encryptionInfo.setKey("KmsKey");
+	MockKmsHttpClient hc;
+	KmsService ks(&hc);
+	std::string url = ks.getKmsUrl("KmsVersionName");
+	std::vector<std::string> headers = ks.getKmsHeaders();
+	std::string body = ks.getBody(encryptionInfo.getKeyName(), encryptionInfo.getIv(), encryptionInfo.getKey());
+
+	EXPECT_CALL(hc, post(url, headers, body)).Times(1).WillOnce(Return(hc.getPostResult()));
+	std::string KmsKey = ks.getKey(encryptionInfo);
+
+	ASSERT_STREQ("testmaterial", KmsKey.c_str());
+}
+
+
 TEST_F(TestEncryptionService, encode_Success) {
-	EncryptionService es;
+	FileEncryptionInfo encryptionInfo;
+	encryptionInfo.setKeyName("ESKeyName");
+	encryptionInfo.setIv("ESIv");
+	encryptionInfo.setEzKeyVersionName("ESVersionName");
+
+
 	char buf[1024] = "encode hello world";
 	std::string Key[3] = {
 		"012345678901234567890123456789ab",
@@ -72,8 +98,11 @@ TEST_F(TestEncryptionService, encode_Success) {
 		"OTHER LENGTH"
 	};
 	for(int i=0; i<3; i++) {
-		es.setKey(Key[i]);
-		es.setIV("1");
+		encryptionInfo.setKey(Key[i]);
+		MockKmsHttpClient hc;
+		KmsService ks(&hc);
+		EncryptionService es(&encryptionInfo, &ks);
+		EXPECT_CALL(hc, post(_, _, _)).Times(2).WillRepeatedly(Return(hc.getPostResult()));
 		std::string encodeStr = es.encode(buf, strlen(buf));
 		ASSERT_NE(0, memcmp(buf, encodeStr.c_str(), strlen(buf)));	
 
