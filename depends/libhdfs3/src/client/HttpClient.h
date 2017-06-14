@@ -19,38 +19,54 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef _HDFS_LIBHDFS3_CLIENT_KMSHTTPCLIENT_H_
-#define _HDFS_LIBHDFS3_CLIENT_KMSHTTPCLIENT_H_
+#ifndef _HDFS_LIBHDFS3_CLIENT_HTTPCLIENT_H_
+#define _HDFS_LIBHDFS3_CLIENT_HTTPCLIENT_H_
 
 #include <string>
 #include <vector>
 #include <curl/curl.h>
+#include "Exception.h"
+#include "ExceptionInternal.h"
 
 namespace Hdfs {
 
-class KmsHttpClient {
+class HttpClient {
 public:
-    KmsHttpClient();
+	HttpClient();
 
-	virtual ~KmsHttpClient();
+	HttpClient(std::string url, std::vector<std::string> headers, std::string body);
 
-	virtual std::string post(std::string url, const std::vector<std::string> &headers, std::string body);
+	virtual ~HttpClient();
 
-	const std::vector<std::string>& getDefaultHeaders() {
-		headers.push_back("Content-Type: application/json");
-		headers.push_back("Accept: *");
-		return headers;
-	}
+	void setURL(const std::string &url);	
 
-	std::string escape(const std::string data) {
-		return curl_easy_escape(curl, data.c_str(), data.length());
-	}
+	void setHeaders(const std::vector<std::string> &headers);
+	
+	void setBody(const std::string &body);	
+
+	void init();
+	
+	void destroy();	
+	
+	virtual std::string post();
+	
+	virtual std::string get();
+
+	std::string escape(const std::string &data);
+
+	std::string errorString();
 
 private:
-	std::vector<std::string> headers;	
+	static size_t CurlWriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp); 
+	static bool initialized;
+	CURLcode res;
+	std::string url;
+	std::vector<std::string> headers;
+	std::string body;	
 	CURL *curl;
 	struct curl_slist *list;
 	std::string response;
+	char errbuf[CURL_ERROR_SIZE] = {0};
 };
 
 }

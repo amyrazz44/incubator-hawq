@@ -32,7 +32,7 @@
 #include "DateTime.h"
 #include "MockFileSystemInter.h"
 #include "MockEncryptionService.h"
-#include "MockKmsHttpClient.h"
+#include "MockHttpClient.h"
 #include "MockLeaseRenewer.h"
 #include "MockPipeline.h"
 #include "NamenodeStub.h"
@@ -71,13 +71,12 @@ TEST_F(TestEncryptionService, KmsGetKey_Success) {
     encryptionInfo.setIv("KmsIv");
     encryptionInfo.setEzKeyVersionName("KmsVersionName");
 	encryptionInfo.setKey("KmsKey");
-	MockKmsHttpClient hc;
+	MockHttpClient hc;
 	KmsService ks(&hc);
 	std::string url = ks.getKmsUrl("KmsVersionName");
 	std::vector<std::string> headers = ks.getKmsHeaders();
 	std::string body = ks.getBody(encryptionInfo.getKeyName(), encryptionInfo.getIv(), encryptionInfo.getKey());
-
-	EXPECT_CALL(hc, post(url, headers, body)).Times(1).WillOnce(Return(hc.getPostResult()));
+	EXPECT_CALL(hc, post()).Times(1).WillOnce(Return(hc.getPostResult()));	
 	std::string KmsKey = ks.getKey(encryptionInfo);
 
 	ASSERT_STREQ("testmaterial", KmsKey.c_str());
@@ -99,10 +98,10 @@ TEST_F(TestEncryptionService, encode_Success) {
 	};
 	for(int i=0; i<3; i++) {
 		encryptionInfo.setKey(Key[i]);
-		MockKmsHttpClient hc;
+		MockHttpClient hc;
 		KmsService ks(&hc);
 		EncryptionService es(&encryptionInfo, &ks);
-		EXPECT_CALL(hc, post(_, _, _)).Times(2).WillRepeatedly(Return(hc.getPostResult()));
+		EXPECT_CALL(hc, post()).Times(2).WillRepeatedly(Return(hc.getPostResult()));
 		std::string encodeStr = es.encode(buf, strlen(buf));
 		ASSERT_NE(0, memcmp(buf, encodeStr.c_str(), strlen(buf)));	
 

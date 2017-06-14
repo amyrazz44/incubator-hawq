@@ -46,7 +46,7 @@ EncryptionService::EncryptionService(FileEncryptionInfo *encryptionInfo, KmsServ
 
 EncryptionService::EncryptionService(FileEncryptionInfo *encryptionInfo) : EncryptionService(encryptionInfo, NULL)
 {
-	this->ks = new KmsService(new KmsHttpClient); 
+	this->ks = new KmsService(new HttpClient); 
 }
 
 std::string EncryptionService::endecInternal(const char * buffer, int64_t size, bool enc)

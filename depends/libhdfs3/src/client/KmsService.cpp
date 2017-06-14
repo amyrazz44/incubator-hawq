@@ -56,9 +56,9 @@ static ptree fromJson(const std::string &data)
 
 
 
-KmsService::KmsService(KmsHttpClient *khc) 
+KmsService::KmsService(HttpClient *hc) 
 {
-	this->khc = khc;
+	this->hc = hc;
 }
 
 
@@ -74,13 +74,22 @@ std::string KmsService::getKey(FileEncryptionInfo &encryptionInfo)
 	
 	// 3. url , headers, body preparation
 	std::string url = getKmsUrl(encryptionInfo.getEzKeyVersionName());
+	LOG(INFO, "http url is : %s", url.c_str());
 	std::vector<std::string> headers = getKmsHeaders();
+	for(std::string header : headers) {
+		LOG(INFO, "header is %s", header.c_str());
+	}
 	std::string body = getBody(encryptionInfo.getKeyName(), encryptionInfo.getIv(), encryptionInfo.getKey());
 
 	LOG(INFO, "http body : %s", body.c_str());
 
-	// 4. call KmsHttpClient to get response
-	std::string response = khc->post(url, headers, body);
+	// 4. call HttpClient to get response
+	hc->init();
+	hc->setURL(url);
+	hc->setHeaders(headers);
+	hc->setBody(body);
+	std::string response = hc->post();
+	hc->destroy();
 	// 5. convert json to map
 	ptree map = fromJson(response);
 	std::string material = map.get<std::string>("material");
@@ -108,12 +117,15 @@ std::string KmsService::getKey(FileEncryptionInfo &encryptionInfo)
 
 std::string KmsService::getKmsUrl(const std::string &keyVersionName)
 {
-	return "http://localhost:16000/kms/v1/keyversion/" + khc->escape(keyVersionName)  + "/_eek?eek_op=decrypt&user.name=abai";	
+	return "http://localhost:16000/kms/v1/keyversion/" + hc->escape(keyVersionName)  + "/_eek?eek_op=decrypt&user.name=abai";	
 }
 
-const std::vector<std::string>& KmsService::getKmsHeaders()
+const std::vector<std::string> KmsService::getKmsHeaders()
 {
-	return khc->getDefaultHeaders();	
+	std::vector<std::string> headers;
+	headers.push_back("Content-Type: application/json");
+ 	headers.push_back("Accept: *");
+ 	return headers;
 }
 
 std::string KmsService::getBody(const std::string &name, const std::string &iv, const std::string &material)

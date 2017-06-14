@@ -29,14 +29,14 @@
 #include "openssl/evp.h"
 #include "openssl/err.h"
 #include "FileEncryptionInfo.h"
-#include "KmsHttpClient.h"
+#include "HttpClient.h"
 #include <vector>
 
 namespace Hdfs {
 
 class KmsService {
 public:
-    KmsService(KmsHttpClient *khc);
+    KmsService(HttpClient *hc);
 
 	virtual ~KmsService(){
 	}
@@ -44,7 +44,7 @@ public:
 	std::string getKey(FileEncryptionInfo &encryptionInfo);
 
 	std::string getKmsUrl(const std::string &key);
-	const std::vector<std::string>& getKmsHeaders();
+	const std::vector<std::string> getKmsHeaders();
 	std::string getBody(const std::string &name, const std::string &iv, const std::string &material);
 
 private:
@@ -54,7 +54,7 @@ private:
 	std::string	base64Decode(const std::string &data);
 
 	FileEncryptionInfo *encryptionInfo;
-	KmsHttpClient 		*khc;
+	HttpClient 		*hc;
 };
 
 }

@@ -19,17 +19,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef _HDFS_LIBHDFS3_MOCK_KMSHTTPCLIENT_H_
-#define _HDFS_LIBHDFS3_MOCK_KMSHTTPCLIENT_H_
+#ifndef _HDFS_LIBHDFS3_MOCK_HTTPCLIENT_H_
+#define _HDFS_LIBHDFS3_MOCK_HTTPCLIENT_H_
 
 #include "gmock/gmock.h"
 
-#include "client/KmsHttpClient.h"
+#include "client/HttpClient.h"
 #include "client/KmsService.h"
 
-class MockKmsHttpClient: public Hdfs::KmsHttpClient {
+class MockHttpClient: public Hdfs::HttpClient {
 public:
-  MOCK_METHOD3(post, std::string(std::string url, const std::vector<std::string> &headers, std::string body));
+  MOCK_METHOD0(post, std::string());
   std::string getPostResult() {
 	KmsService ks(this);
 	return ks.getBody("testname", "testiv", "testmaterial");	
@@ -37,4 +37,4 @@ public:
 
 };
 
-#endif /* _HDFS_LIBHDFS3_MOCK_KMSHTTPCLIENT_H_ */
+#endif /* _HDFS_LIBHDFS3_MOCK_HTTPCLIENT_H_ */
