@@ -301,6 +301,14 @@ public:
       return socketCacheCapacity;
     }
 
+	const std::string& getKmsUrl() const {
+      return kmsUrl;
+    }
+
+	const std::string& getKmsMethod() const {
+        return kmsAuthMethod;
+    }
+
 public:
     /*
      * rpc configure
@@ -359,7 +367,8 @@ public:
     int32_t packetPoolSize;
     int32_t heartBeatInterval;
     int32_t closeFileTimeout;
-
+	std::string kmsUrl;
+	std::string kmsAuthMethod;
 };
 
 }

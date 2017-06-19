@@ -29,7 +29,7 @@
 
 class MockHttpClient: public Hdfs::HttpClient {
 public:
-  MOCK_METHOD0(post, std::string());
+  MOCK_METHOD0(HttpPost, std::string());
   std::string getPostResult() {
 	KmsService ks(this);
 	return ks.getBody("testname", "testiv", "testmaterial");	

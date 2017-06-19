@@ -43,26 +43,34 @@ public:
 	void setHeaders(const std::vector<std::string> &headers);
 	
 	void setBody(const std::string &body);	
+	
+	void setResponseSuccessCode(const long response_code_ok);
 
 	void init();
 	
 	void destroy();	
 	
-	virtual std::string post();
+	virtual std::string HttpPost();
 	
-	virtual std::string get();
+	virtual std::string HttpDelete();
+	
+	virtual std::string HttpPut();
+	
+	virtual std::string HttpGet();
 
 	std::string escape(const std::string &data);
 
 	std::string errorString();
 
 private:
+ 	std::string HttpInternal(int method);
 	static size_t CurlWriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp); 
 	static bool initialized;
 	CURLcode res;
 	std::string url;
 	std::vector<std::string> headers;
-	std::string body;	
+	std::string body;
+	long response_code_ok;	
 	CURL *curl;
 	struct curl_slist *list;
 	std::string response;

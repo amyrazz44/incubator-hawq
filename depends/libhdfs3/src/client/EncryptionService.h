@@ -28,13 +28,13 @@
 #include "openssl/evp.h"
 #include "openssl/err.h"
 #include "FileEncryptionInfo.h"
-#include "KmsService.h"
+#include "KmsClientProvider.h"
 
 namespace Hdfs {
 
 class EncryptionService {
 public:
-    EncryptionService(FileEncryptionInfo *encryptionInfo, KmsService *ks);
+    EncryptionService(FileEncryptionInfo *encryptionInfo, KmsClientProvider *kcp);
 	EncryptionService(FileEncryptionInfo *encryptionInfo);
 
 	virtual ~EncryptionService(){
@@ -47,7 +47,7 @@ public:
 
 private:
 	FileEncryptionInfo 	*encryptionInfo;
-	KmsService			*ks;
+	KmsClientProvider	*kcp;
 	EVP_CIPHER_CTX		*encryptCtx;	
 	EVP_CIPHER_CTX		*decryptCtx;
 	const EVP_CIPHER	*cipher;	

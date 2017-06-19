@@ -21,6 +21,9 @@
  */
 #include "gtest/gtest.h"
 #include "client/hdfs.h"
+#include "client/HttpClient.h"
+#include "client/KmsClientProvider.h"
+#include "client/FileEncryptionInfo.h"
 #include "Logger.h"
 #include "SessionConfig.h"
 #include "TestUtil.h"
@@ -281,6 +284,29 @@ TEST(TestCInterfaceTDE, TestAppendWithTDE_Success) {
 	ASSERT_EQ(hdfsDisconnect(fs), 0);
     hdfsFreeBuilder(bld);
 }
+
+/*
+TEST(TestCInterfaceKms, TestKmsClientProvider_Success) {
+	Hdfs::FileEncryptionInfo encryptionInfo;
+	encryptionInfo.setKeyName("httpName");
+    encryptionInfo.setIv("httpIv");
+    encryptionInfo.setEzKeyVersionName("httpVersion");
+    encryptionInfo.setKey("httpKey");
+	Config conf;
+    shared_ptr<SessionConfig> sessionConf = new SessionConfig(conf);
+    shared_ptr<RpcAuth> auth = new RpcAuth();
+    KmsClientProvider kcp(auth, conf);
+	std::string keyName = "testKmsKeyName";
+	std::string cipher = "AES/CTR/NoPadding";
+	int length = 128;
+	std::string material = "testKmsMaterial";
+	std::string description = "test Kms";
+	kcp.createKey(keyName, cipher, length, material, description);
+	
+	
+}
+*/
+
 
 TEST(TestErrorMessage, TestErrorMessage) {
     EXPECT_NO_THROW(hdfsGetLastError());

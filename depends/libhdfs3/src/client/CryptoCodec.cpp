@@ -20,14 +20,14 @@
  * limitations under the License.
  */
 
-#include "EncryptionService.h"
+#include "CryptoCodec.h"
 #include "Logger.h"
 
 using namespace Hdfs::Internal;
 
 namespace Hdfs {
 
-EncryptionService::EncryptionService(FileEncryptionInfo *encryptionInfo, KmsClientProvider *kcp)
+CryptoCodec::CryptoCodec(FileEncryptionInfo *encryptionInfo, KmsClientProvider *kcp)
 {
 		
 	// 0. init global status
@@ -44,24 +44,40 @@ EncryptionService::EncryptionService(FileEncryptionInfo *encryptionInfo, KmsClie
 	this->kcp = kcp;
 }
 
-EncryptionService::EncryptionService(FileEncryptionInfo *encryptionInfo) : EncryptionService(encryptionInfo, NULL)
+/*
+CryptoCodec::CryptoCodec(FileEncryptionInfo *encryptionInfo) : CryptoCodec(encryptionInfo, NULL)
 {
 	//this->kcp = new KmsClientProvider(new HttpClient()); 
 }
+*/
 
-std::string EncryptionService::endecInternal(const char * buffer, int64_t size, bool enc)
+std::string CryptoCodec::endecInternal(const char * buffer, int64_t size, bool enc)
 {
 	std::string key = encryptionInfo->getKey();
 	std::string iv = encryptionInfo->getIv();
 	LOG(INFO, "endecInternal info. key:%s iv:%s buffer:%s size:%ld is_encode:%b", key.c_str(), iv.c_str(), buffer, size, enc);
 	// OPENSSL 
-	
 	// 0. init global status
-
-	
 	// 1. create cipher context
-	//key = kcp->decryptEncryptedKey();
-	key = "123";
+	ptree map = kcp->decryptEncryptedKey(*encryptionInfo);
+	key = map.get<std::string>("material");
+
+	int rem = key.length() % 4;
+    if (rem) {
+        rem = 4 - rem;
+        while (rem != 0) {
+            key = key + "=";
+            rem--;
+        }
+    }
+
+    std::replace(key.begin(), key.end(), '-', '+');
+    std::replace(key.begin(), key.end(), '_', '/');
+
+    LOG(INFO, "material is :%s", key.c_str());
+	
+	key = kcp->base64Decode(key);
+
 	// 2. select cipher method
 	if (key.length() == 32) {
 		cipher = EVP_aes_256_ctr();	
@@ -93,12 +109,12 @@ std::string EncryptionService::endecInternal(const char * buffer, int64_t size, 
 	return result;
 }
 
-std::string EncryptionService::encode(const char * buffer, int64_t size)
+std::string CryptoCodec::encode(const char * buffer, int64_t size)
 {
 	return endecInternal(buffer, size, true);
 }
 	
-std::string EncryptionService::decode(const char * buffer, int64_t size)
+std::string CryptoCodec::decode(const char * buffer, int64_t size)
 {
 	return endecInternal(buffer, size, false);
 }
