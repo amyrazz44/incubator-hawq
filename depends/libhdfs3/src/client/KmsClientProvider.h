@@ -35,12 +35,10 @@
 #include "rpc/RpcAuth.h"
 
 #include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
 
 using boost::property_tree::ptree;
-using boost::property_tree::read_json;
-using boost::property_tree::write_json;
 using namespace Hdfs::Internal;
+
 
 namespace Hdfs {
 
@@ -51,15 +49,15 @@ public:
 	virtual ~KmsClientProvider(){
 	}
 
-	void setHttpClient(std::shared_ptr<HttpClient> hc);
+	virtual void setHttpClient(std::shared_ptr<HttpClient> hc);
 	
-	void createKey(const std::string &keyName, const std::string &cipher, const int length, const std::string &material, const std::string &description);
+	virtual void createKey(const std::string &keyName, const std::string &cipher, const int length, const std::string &material, const std::string &description);
 
-	ptree getKeyMetadata(const FileEncryptionInfo &encryptionInfo);
+	virtual ptree getKeyMetadata(const FileEncryptionInfo &encryptionInfo);
 
-	void deleteKey(const FileEncryptionInfo &encryptionInfo);
+	virtual void deleteKey(const FileEncryptionInfo &encryptionInfo);
 
-	ptree decryptEncryptedKey(const FileEncryptionInfo &encryptionInfo);
+	virtual ptree decryptEncryptedKey(const FileEncryptionInfo &encryptionInfo);
 
 	std::string	base64Encode(const std::string &data);
 
@@ -68,8 +66,8 @@ public:
 private:
 	static std::string  toJson(ptree &data);
 	static ptree		fromJson(const std::string &data);
-	std::string parseKmsUrl(std::shared_ptr<SessionConfig> conf);
-	std::string buildKmsUrl(const std::string url, const std::string urlSuffix);
+	std::string 		parseKmsUrl(std::shared_ptr<SessionConfig> conf);
+	std::string 		buildKmsUrl(const std::string url, const std::string urlSuffix);
 
 	std::shared_ptr<HttpClient> 	hc;
 	std::string						url;

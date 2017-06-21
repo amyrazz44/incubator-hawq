@@ -31,7 +31,7 @@
 #include "client/Pipeline.h"
 #include "DateTime.h"
 #include "MockFileSystemInter.h"
-#include "MockEncryptionService.h"
+#include "MockCryptoCodec.h"
 #include "MockLeaseRenewer.h"
 #include "MockPipeline.h"
 #include "NamenodeStub.h"
@@ -368,14 +368,24 @@ TEST_F(TestOutputStream, appendEncryption_Success) {
  	FileStatus fileinfo;
     fileinfo.setBlocksize(2048);
     fileinfo.setLength(1024);
+
+    Config conf;
+	conf.set("hadoop.kms.authentication.type", "simple");
+    conf.set("dfs.encryption.key.provider.uri","kms://http@localhost:16000/kms");
+	SessionConfig sconf(conf);
+    shared_ptr<SessionConfig> sessionConf(new SessionConfig(conf));
+	UserInfo userInfo;	
+	userInfo.setRealUser("abai");
+	shared_ptr<RpcAuth> auth(new RpcAuth(userInfo, RpcAuth::ParseMethod(sessionConf->getKmsMethod())));
 	FileEncryptionInfo * encryptionInfo = fileinfo.getFileEncryption();
 	encryptionInfo->setKey("TDE");
 	encryptionInfo->setKeyName("TDEName");
-	MockEncryptionService *es = new MockEncryptionService(encryptionInfo);
-	ous.setEncryptionService(shared_ptr<EncryptionService>(es));	
+	shared_ptr<KmsClientProvider> kcp(new KmsClientProvider(auth, sessionConf));
+	int32_t bufSize = 8192;
+	MockCryptoCodec *cryptoC= new MockCryptoCodec(encryptionInfo, kcp, bufSize);
+	ous.setCryptoCodec(shared_ptr<CryptoCodec>(cryptoC));	
     MockFileSystemInter * fs = new MockFileSystemInter;
-    Config conf;
-    const SessionConfig sessionConf(conf);
+	
     shared_ptr<LocatedBlock> lastBlock(new LocatedBlock);
     lastBlock->setNumBytes(0);
     std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus> > lastBlockWithStatus;
@@ -383,7 +393,7 @@ TEST_F(TestOutputStream, appendEncryption_Success) {
     lastBlockWithStatus.second = shared_ptr<FileStatus>(new FileStatus(fileinfo));
     EXPECT_CALL(*fs, getStandardPath(_)).Times(1).WillOnce(Return("/testopen"));
     EXPECT_CALL(*fs, getFileStatus(_)).Times(1).WillOnce(Return(fileinfo));
-    EXPECT_CALL(*fs, getConf()).Times(1).WillOnce(ReturnRef(sessionConf));
+    EXPECT_CALL(*fs, getConf()).Times(1).WillOnce(ReturnRef(sconf));
     EXPECT_CALL(*fs, append(_)).Times(1).WillOnce(Return(lastBlockWithStatus));
     EXPECT_CALL(GetMockLeaseRenewer(), StartRenew(_)).Times(1);
     EXPECT_CALL(GetMockLeaseRenewer(), StopRenew(_)).Times(1);
@@ -396,7 +406,7 @@ TEST_F(TestOutputStream, appendEncryption_Success) {
     EXPECT_CALL(*pipelineStub, close(_)).Times(2).WillOnce(Return(lastBlock)).WillOnce(Return(lastBlock));
     EXPECT_CALL(*fs, fsync(_)).Times(2);
 	std::string bufferEn;
-	EXPECT_CALL(*es, encode(_,_)).Times(1).WillOnce(Return(bufferEn));
+	EXPECT_CALL(*cryptoC, encode(_,_)).Times(1).WillOnce(Return(bufferEn));
     EXPECT_NO_THROW(ous.append(buffer, sizeof(buffer)));
 	EXPECT_CALL(*pipelineStub, close(_)).Times(1).WillOnce(Return(lastBlock));
     EXPECT_CALL(*fs, fsync(_)).Times(1);

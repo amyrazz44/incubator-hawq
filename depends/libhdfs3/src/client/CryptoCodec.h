@@ -34,11 +34,9 @@ namespace Hdfs {
 
 class CryptoCodec {
 public:
-    CryptoCodec(FileEncryptionInfo *encryptionInfo, KmsClientProvider *kcp);
-	//CryptoCodec(FileEncryptionInfo *encryptionInfo);
+    CryptoCodec(FileEncryptionInfo *encryptionInfo, std::shared_ptr<KmsClientProvider> kcp, int32_t bufSize);
 
-	virtual ~CryptoCodec(){
-	}
+	virtual ~CryptoCodec();
 
 	virtual std::string encode(const char * buffer, int64_t size);
 	
@@ -46,12 +44,14 @@ public:
 
 
 private:
-	FileEncryptionInfo 	*encryptionInfo;
-	KmsClientProvider	*kcp;
-	EVP_CIPHER_CTX		*encryptCtx;	
-	EVP_CIPHER_CTX		*decryptCtx;
-	const EVP_CIPHER	*cipher;	
 	std::string endecInternal(const char *buffer, int64_t size, bool enc);
+	std::string getDecryptedKeyFromKms();
+	std::shared_ptr<KmsClientProvider>		kcp;
+	FileEncryptionInfo					 	*encryptionInfo;
+	EVP_CIPHER_CTX							*encryptCtx;	
+	EVP_CIPHER_CTX							*decryptCtx;
+	const EVP_CIPHER						*cipher;
+	int32_t									bufSize;	
 };
 
 }

@@ -38,17 +38,17 @@ public:
 
 	virtual ~HttpClient();
 
-	void setURL(const std::string &url);	
+	virtual void setURL(const std::string &url);	
 
-	void setHeaders(const std::vector<std::string> &headers);
+	virtual void setHeaders(const std::vector<std::string> &headers);
 	
-	void setBody(const std::string &body);	
+	virtual void setBody(const std::string &body);	
 	
-	void setResponseSuccessCode(const long response_code_ok);
+	virtual void setResponseSuccessCode(const long response_code_ok);
 
-	void init();
+	virtual void init();
 	
-	void destroy();	
+	virtual void destroy();	
 	
 	virtual std::string HttpPost();
 	
@@ -58,9 +58,9 @@ public:
 	
 	virtual std::string HttpGet();
 
-	std::string escape(const std::string &data);
+	virtual std::string escape(const std::string &data);
 
-	std::string errorString();
+	virtual std::string errorString();
 
 private:
  	std::string HttpInternal(int method);

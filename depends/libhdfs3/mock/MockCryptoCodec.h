@@ -25,11 +25,11 @@
 #include "gmock/gmock.h"
 
 #include "client/CryptoCodec.h"
+#include "client/KmsClientProvider.h"
 
 class MockCryptoCodec: public Hdfs::CryptoCodec {
 public:
-  //MockCryptoCodec(FileEncryptionInfo *encryptionInfo) : CryptoCodec(encryptionInfo){}
-  MockCryptoCodec(FileEncryptionInfo *encryptionInfo, KmsClientProvider *kcp);
+  MockCryptoCodec(FileEncryptionInfo *encryptionInfo, std::shared_ptr<KmsClientProvider> kcp, int32_t bufSize) : CryptoCodec(encryptionInfo, kcp, bufSize) {}
   MOCK_METHOD2(encode, std::string(const char * buffer,int64_t size));
   MOCK_METHOD2(decode, std::string(const char * buffer,int64_t size));
 };

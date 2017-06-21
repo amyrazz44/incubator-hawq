@@ -24,7 +24,10 @@
 #include "Logger.h"
 #include <gsasl.h>
 #include <map>
+#include <boost/property_tree/json_parser.hpp>
 using namespace Hdfs::Internal;
+using boost::property_tree::read_json;
+using boost::property_tree::write_json;
 
 namespace Hdfs {
 
@@ -110,8 +113,6 @@ void KmsClientProvider::createKey(const std::string &keyName, const std::string 
 	ptree map;
     map.put("name", keyName);
     map.put("cipher", cipher);
-	//map.put("length", length);
-    //map.put("material", base64Encode(material));
 	map.put("description", description);
     std::string body = toJson(map);	
 	LOG(INFO, "create key body is %s", body.c_str());
@@ -157,22 +158,16 @@ ptree KmsClientProvider::decryptEncryptedKey(const FileEncryptionInfo &encryptio
 	// prepare HttpClient url
 	std::string urlSuffix = "keyversion/" + hc->escape(encryptionInfo.getEzKeyVersionName()) + "/_eek?eek_op=decrypt";
 	url = buildKmsUrl(url, urlSuffix);
-	LOG(INFO, "http url is : %s", url.c_str());
 	// prepare HttpClient headers
 	std::vector<std::string> headers;
 	headers.push_back("Content-Type: application/json");
  	headers.push_back("Accept: *");
-	for(std::string header : headers) {
-		LOG(INFO, "header is %s", header.c_str());
-	}
 	// prepare HttpClient body in json format
 	ptree map;
     map.put("name", encryptionInfo.getKeyName());
     map.put("iv", base64Encode(encryptionInfo.getIv()));
     map.put("material", base64Encode(encryptionInfo.getKey()));
     std::string body = toJson(map);	
-
-	LOG(INFO, "http body : %s", body.c_str());
 
 	// call HttpClient to get response
 	hc->init();
@@ -184,28 +179,7 @@ ptree KmsClientProvider::decryptEncryptedKey(const FileEncryptionInfo &encryptio
 	hc->destroy();
 	// convert json to map
 	map = fromJson(response);
-
 	return map;
-	/*
-	std::string material = map.get<std::string>("material");
-
-	int rem = material.length() % 4;
-	if (rem) {
-		rem = 4 - rem;
-		while (rem != 0) {
-			material = material + "=";
-			rem--;
-		}
-	}
-
-	std::replace(material.begin(), material.end(), '-', '+');
-	std::replace(material.begin(), material.end(), '_', '/');
-
-	LOG(INFO, "material is :%s", material.c_str());	
-
-	//7. return key
-	return base64Decode(material);
-	*/
 }
 
 std::string	KmsClientProvider::base64Encode(const std::string &data)

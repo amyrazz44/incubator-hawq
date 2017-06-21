@@ -43,7 +43,7 @@ OutputStreamImpl::OutputStreamImpl() :
 /*heartBeatStop(true),*/ closed(true), isAppend(false), syncBlock(false), checksumSize(0), chunkSize(
         0), chunksPerPacket(0), closeTimeout(0), heartBeatInterval(0), packetSize(0), position(
             0), replication(0), blockSize(0), bytesWritten(0), cursor(0), lastFlushed(
-                0), nextSeqNo(0), packets(0), encryptionService(NULL) {
+                0), nextSeqNo(0), packets(0), cryptoCodec(NULL), kcp(NULL) {
     if (HWCrc32c::available()) {
         checksum = shared_ptr < Checksum > (new HWCrc32c());
     } else {
@@ -86,15 +86,21 @@ void OutputStreamImpl::setError(const exception_ptr & error) {
     }
 }
 
-shared_ptr<EncryptionService> OutputStreamImpl::getEncryptionService(){
-	return encryptionService;
+shared_ptr<CryptoCodec> OutputStreamImpl::getCryptoCodec(){
+	return cryptoCodec;
 }
 
-void OutputStreamImpl::setEncryptionService(shared_ptr<EncryptionService> encryptionService){
-	this->encryptionService = encryptionService;
+void OutputStreamImpl::setCryptoCodec(shared_ptr<CryptoCodec> cryptoCodec){
+	this->cryptoCodec = cryptoCodec;
 }
 
+shared_ptr<KmsClientProvider> OutputStreamImpl::getKmsClientProvider(){
+	return kcp;
+}
 
+void OutputStreamImpl::setKmsClientProvider(shared_ptr<KmsClientProvider> kcp){
+	this->kcp = kcp;
+}
 /**
  * To create or append a file.
  * @param fs hdfs file system.
@@ -246,9 +252,12 @@ void OutputStreamImpl::openInternal(shared_ptr<FileSystemInter> fs, const char *
     try {
         if (flag & Append) {
 			fileStatus = fs->getFileStatus(this->path.c_str());
+			FileEncryptionInfo *fileEnInfo = fileStatus.getFileEncryption();
 			if (fileStatus.isFileEncrypted()) {
-				if (encryptionService == NULL) {
-					encryptionService = shared_ptr <EncryptionService> (new EncryptionService(fileStatus.getFileEncryption()));
+				if (cryptoCodec == NULL) {
+					auth = shared_ptr<RpcAuth> (new RpcAuth(fs->getUserInfo(), RpcAuth::ParseMethod(conf->getKmsMethod())));
+					kcp = shared_ptr<KmsClientProvider> (new KmsClientProvider(auth, conf));	
+					cryptoCodec = shared_ptr<CryptoCodec> (new CryptoCodec(fileEnInfo, kcp, conf->getCryptoBufferSize()));
 				}
 			} 	
             initAppend();
@@ -294,7 +303,7 @@ void OutputStreamImpl::append(const char * buf, int64_t size) {
 void OutputStreamImpl::appendInternal(const char * buf, int64_t size) {
     int64_t todo = size;
 	if (fileStatus.isFileEncrypted()) {
-		buf = encryptionService->encode(buf, size).c_str();
+		buf = cryptoCodec->encode(buf, size).c_str();
 		
 	}
     while (todo > 0) {

@@ -309,6 +309,10 @@ public:
         return kmsAuthMethod;
     }
 
+	int32_t getCryptoBufferSize() const {
+        return cryptoBufferSize;
+    }
+
 public:
     /*
      * rpc configure
@@ -369,6 +373,7 @@ public:
     int32_t closeFileTimeout;
 	std::string kmsUrl;
 	std::string kmsAuthMethod;
+	int32_t cryptoBufferSize;
 };
 
 }

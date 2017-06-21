@@ -32,6 +32,7 @@
 #include "DateTime.h"
 #include "MockFileSystemInter.h"
 #include "MockCryptoCodec.h"
+#include "MockKmsClientProvider.h"
 #include "MockHttpClient.h"
 #include "MockLeaseRenewer.h"
 #include "MockPipeline.h"
@@ -42,11 +43,10 @@
 #include "Thread.h"
 #include "XmlConfig.h"
 #include "client/KmsClientProvider.h"
-
 #include <string>
 
 using namespace Hdfs;
-using namespace Internal;
+using namespace Hdfs::Internal;
 using namespace Hdfs::Mock;
 using namespace testing;
 using ::testing::AtLeast;
@@ -64,7 +64,6 @@ public:
 protected:
 };
 
-
 TEST_F(TestCryptoCodec, KmsGetKey_Success) {
 	FileEncryptionInfo encryptionInfo;
 	encryptionInfo.setKeyName("KmsName");
@@ -72,20 +71,24 @@ TEST_F(TestCryptoCodec, KmsGetKey_Success) {
     encryptionInfo.setEzKeyVersionName("KmsVersionName");
 	encryptionInfo.setKey("KmsKey");
 	Config conf;
-	shared_ptr<SessionConfig> sessionConf = new SessionConfig(conf);
-	shared_ptr<RpcAuth> auth = new RpcAuth();
-	KmsClientProvider ks(auth, conf);
-	MockHttpClient hc;
-	//todo
-	std::string url = ks.getKmsUrl("KmsVersionName");
-	std::vector<std::string> headers = ks.getKmsHeaders();
-	std::string body = ks.getBody(encryptionInfo.getKeyName(), encryptionInfo.getIv(), encryptionInfo.getKey());
-	EXPECT_CALL(hc, HttpPost()).Times(1).WillOnce(Return(hc.getPostResult()));	
-	std::string KmsKey = ks.getKey(encryptionInfo);
+	conf.set("hadoop.kms.authentication.type", "simple");
+    conf.set("dfs.encryption.key.provider.uri","kms://http@localhost:16000/kms");
+	shared_ptr<SessionConfig> sconf(new SessionConfig(conf));
+	UserInfo userInfo;
+	userInfo.setRealUser("abai");
+	shared_ptr<RpcAuth> auth(new RpcAuth(userInfo, RpcAuth::ParseMethod(sconf->getKmsMethod())));		
+	
+	KmsClientProvider kcp(auth, sconf);
+	shared_ptr<MockHttpClient> hc(new MockHttpClient());	
+	kcp.setHttpClient(hc);
 
-	ASSERT_STREQ("testmaterial", KmsKey.c_str());
+	EXPECT_CALL(*hc, HttpPost()).Times(1).WillOnce(Return(hc->getPostResult(encryptionInfo)));
+	
+	ptree map = kcp.decryptEncryptedKey(encryptionInfo);
+	std::string KmsKey = map.get<std::string>("material");
+
+	ASSERT_STREQ("KmsKey", KmsKey.c_str());
 }
-
 
 TEST_F(TestCryptoCodec, encode_Success) {
 	FileEncryptionInfo encryptionInfo;
@@ -93,8 +96,23 @@ TEST_F(TestCryptoCodec, encode_Success) {
 	encryptionInfo.setIv("ESIv");
 	encryptionInfo.setEzKeyVersionName("ESVersionName");
 
+	Config conf;
+	conf.set("hadoop.kms.authentication.type", "simple");
+    conf.set("dfs.encryption.key.provider.uri","kms://http@localhost:16000/kms");
+	shared_ptr<SessionConfig> sconf(new SessionConfig(conf));
+	UserInfo userInfo;
+	userInfo.setRealUser("abai");
+	shared_ptr<RpcAuth> auth(new RpcAuth(userInfo, RpcAuth::ParseMethod(sconf->getKmsMethod())));		
+	
+	shared_ptr<MockKmsClientProvider> kcp(new MockKmsClientProvider(auth, sconf));
 
+			
 	char buf[1024] = "encode hello world";
+	//char buffer[1024];
+	//Hdfs::FillBuffer(buffer, sizeof(buffer), 2048);
+
+	int32_t bufSize = 8192;
+
 	std::string Key[3] = {
 		"012345678901234567890123456789ab",
 		"0123456789012345",
@@ -102,10 +120,11 @@ TEST_F(TestCryptoCodec, encode_Success) {
 	};
 	for(int i=0; i<3; i++) {
 		encryptionInfo.setKey(Key[i]);
-		MockHttpClient hc;
-		KmsClientProvider ks(&hc);
-		CryptoCodec es(&encryptionInfo, &ks);
-		EXPECT_CALL(hc, HttpPost()).Times(2).WillRepeatedly(Return(hc.getPostResult()));
+		shared_ptr<MockHttpClient> hc(new MockHttpClient());	
+		//kcp->setHttpClient(hc);
+		CryptoCodec es(&encryptionInfo, kcp, bufSize);
+    	//EXPECT_CALL(*hc, HttpPost()).Times(2).WillRepeatedly(Return(hc->getPostResult(encryptionInfo)));
+		EXPECT_CALL(*kcp, decryptEncryptedKey(_)).Times(1).WillRepeatedly(Return(kcp->getEDKResult(encryptionInfo)));
 		std::string encodeStr = es.encode(buf, strlen(buf));
 		ASSERT_NE(0, memcmp(buf, encodeStr.c_str(), strlen(buf)));	
 
