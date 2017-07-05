@@ -32,18 +32,10 @@ using boost::property_tree::ptree;
 
 class MockHttpClient: public Hdfs::HttpClient {
 public:
-  MOCK_METHOD1(setURL, void(const std::string &url));
-  MOCK_METHOD1(setHeaders, void(const std::vector<std::string> &headers));
-  MOCK_METHOD1(setBody, void(const std::string &body));
-  MOCK_METHOD1(setResponseSuccessCode, void(const long response_code_ok));
-  MOCK_METHOD0(init, void());
-  MOCK_METHOD0(destroy, void());
-  MOCK_METHOD1(escape, std::string(const std::string &data));
-  MOCK_METHOD0(errorString, std::string());
-  MOCK_METHOD0(HttpPost, std::string());
-  MOCK_METHOD0(HttpDelete, std::string());
-  MOCK_METHOD0(HttpPut, std::string());
-  MOCK_METHOD0(HttpGet, std::string());
+  MOCK_METHOD0(post, std::string());
+  MOCK_METHOD0(del, std::string());
+  MOCK_METHOD0(put, std::string());
+  MOCK_METHOD0(get, std::string());
 
   std::string getPostResult(FileEncryptionInfo &encryptionInfo) {
 	ptree map;

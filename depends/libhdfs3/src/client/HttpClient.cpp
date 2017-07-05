@@ -56,30 +56,19 @@ namespace Hdfs {
 #define CURL_GET_RESPONSE(handle, code, fmt) \
     CURL_GETOPT_ERROR2(handle, CURLINFO_RESPONSE_CODE, code, fmt);
 
+HttpClient::HttpClient() : curl(NULL), list(NULL) {
 
-
-HttpClient::HttpClient() : curl(NULL), list(NULL) 
-{			
 }
 
-HttpClient::HttpClient(std::string url, std::vector<std::string> headers, std::string body) {
+HttpClient::HttpClient(const std::string &url) {
 	curl = NULL;
 	list = NULL;
 	this->url = url;
-	for (std::string header : headers) {
-		list = curl_slist_append(list, header.c_str());
-	}	
-	if (!list) {
-		THROW(HdfsIOException, "Cannot add header.");
-	}
-	this->body = body;
 }
 
 HttpClient::~HttpClient()
 {
-	curl = NULL;
-	list = NULL;
-	errbuf[CURL_ERROR_SIZE] = {0};
+	destroy();
 }
 
 std::string HttpClient::errorString() {
@@ -157,27 +146,38 @@ void HttpClient::setURL(const std::string &url) {
 	this->url = url;
 }
 
+void HttpClient::setResponseRetryTime(int response_retry_times) {
+	this->response_retry_times = response_retry_times;
+}
+
+void HttpClient::setCurlTimeout(int64_t curl_timeout) {
+	this->curl_timeout = curl_timeout;
+}
+
 void HttpClient::setHeaders(const std::vector<std::string> &headers) {
-	this->headers = headers;
-	for (std::string header : headers) {
-        list = curl_slist_append(list, header.c_str());
-    }
-    if (!list) {
-        THROW(HdfsIOException, "Cannot add header in HttpClient.");
-    }
+	if (!headers.empty()) {
+		this->headers = headers;
+		for (std::string header : headers) {
+        	list = curl_slist_append(list, header.c_str());
+    	}	
+    	if (!list) {
+        	THROW(HdfsIOException, "Cannot add header in HttpClient.");
+   		}
+	}
+	else {
+		LOG(WARNING, "Headers is empty in HttpClient.");				
+	}
 }
 
 void HttpClient::setBody(const std::string &body) {
 	this->body = body;
 }
 
-void HttpClient::setResponseSuccessCode(const long response_code_ok) {
+void HttpClient::setExpectedResponseCode(int64_t response_code_ok) {
 	this->response_code_ok = response_code_ok;
 }
 
-std::string HttpClient::HttpInternal(int method) {
-	long response_code;
-
+std::string HttpClient::httpCommon(httpMethod method) {
 	LOG(INFO, "http url is : %s", url.c_str());
 	CURL_SETOPT_ERROR2(curl, CURLOPT_HTTPHEADER, list,
                 "Cannot initialize headers in HttpClient: %s: %s");
@@ -186,17 +186,17 @@ std::string HttpClient::HttpInternal(int method) {
             "Cannot initialize url in HttpClient: %s: %s");
 
 	switch(method) {
-		case 0:
+		case E_GET:
 			break;
-		case 1:
+		case E_POST:
 			CURL_SETOPT_ERROR2(curl, CURLOPT_COPYPOSTFIELDS, body.c_str(),
                 "Cannot initialize post data in HttpClient: %s: %s");
 			break;
-		case 2:
+		case E_DELETE:
 			CURL_SETOPT_ERROR2(curl, CURLOPT_CUSTOMREQUEST, "DELETE",
                 "Cannot initialize set customer request in HttpClient: %s: %s");
 			break;
-		case 3:
+		case E_PUT:
 			CURL_SETOPT_ERROR2(curl, CURLOPT_CUSTOMREQUEST, "PUT",
                 "Cannot initialize set customer request in HttpClient: %s: %s");
 			
@@ -204,40 +204,41 @@ std::string HttpClient::HttpInternal(int method) {
                 "Cannot initialize post data in HttpClient: %s: %s");
 			break;
 	}
-
-	CURL_PERFORM(curl, "Could not send request in HttpClient: %s %s");
 	
-	CURL_GET_RESPONSE(curl, &response_code,
-                "Cannot get response code in HttpClient: %s: %s");
-	if (response_code != response_code_ok) {
+	int64_t response_code = -1;	
+
+	while (response_retry_times > 0 && response_code != response_code_ok) {
+		LOG(DEBUG2, "response_code_error_try time is %d", response_retry_times);
+		response_retry_times -= 1;
 		response = "";
+		CURL_SETOPT_ERROR2(curl, CURLOPT_TIMEOUT, curl_timeout, 
+	    			"Send request to http server timeout: %s: %s");
 		CURL_PERFORM(curl, "Could not send request in HttpClient: %s %s");
-	}
-	
-	CURL_GET_RESPONSE(curl, &response_code,
-                "Cannot get response code in HttpClient: %s: %s");
-
-	if(response_code != response_code_ok) {
-		THROW(HdfsIOException, "Got invalid response from HttpClient: %d", (int)response_code);
+		CURL_GET_RESPONSE(curl, &response_code,
+        	        "Cannot get response code in HttpClient: %s: %s");
 	}
 
 	return response;
 }
 
-std::string HttpClient::HttpGet() {
-	return HttpInternal(0);
+std::string HttpClient::get() {
+	httpMethod method = E_GET;
+	return httpCommon(method);
 }
 
-std::string HttpClient::HttpPost() {
-	return HttpInternal(1);
+std::string HttpClient::post() {
+	httpMethod method = E_POST;
+	return httpCommon(method);
 }
 
-std::string HttpClient::HttpDelete() {
-	return HttpInternal(2);
+std::string HttpClient::del() {
+	httpMethod method = E_DELETE;
+	return httpCommon(method);
 }
 
-std::string HttpClient::HttpPut() {
-	return HttpInternal(3);
+std::string HttpClient::put() {
+	httpMethod method = E_PUT;
+	return httpCommon(method);
 }
 
 	

@@ -28,49 +28,62 @@
 #include "Exception.h"
 #include "ExceptionInternal.h"
 
+typedef enum httpMethod {
+    E_GET = 0,
+	E_POST = 1,
+	E_DELETE = 2,
+	E_PUT = 3
+} httpMethod;
+
 namespace Hdfs {
 
 class HttpClient {
 public:
 	HttpClient();
 
-	HttpClient(std::string url, std::vector<std::string> headers, std::string body);
+	HttpClient(const std::string &url);
 
 	virtual ~HttpClient();
 
-	virtual void setURL(const std::string &url);	
+	void setURL(const std::string &url);	
 
-	virtual void setHeaders(const std::vector<std::string> &headers);
+	void setHeaders(const std::vector<std::string> &headers);
 	
-	virtual void setBody(const std::string &body);	
+	void setBody(const std::string &body);	
 	
-	virtual void setResponseSuccessCode(const long response_code_ok);
+	void setResponseRetryTime(int response_retry_times);	
+	
+	void setCurlTimeout(int64_t curl_timeout);	
+	
+	void setExpectedResponseCode(int64_t response_code_ok);
 
-	virtual void init();
+	void init();
 	
-	virtual void destroy();	
+	void destroy();	
 	
-	virtual std::string HttpPost();
+	virtual std::string post();
 	
-	virtual std::string HttpDelete();
+	virtual std::string del();
 	
-	virtual std::string HttpPut();
+	virtual std::string put();
 	
-	virtual std::string HttpGet();
+	virtual std::string get();
 
-	virtual std::string escape(const std::string &data);
+	std::string escape(const std::string &data);
 
-	virtual std::string errorString();
+	std::string errorString();
 
 private:
- 	std::string HttpInternal(int method);
+ 	std::string httpCommon(httpMethod method);
 	static size_t CurlWriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp); 
 	static bool initialized;
 	CURLcode res;
 	std::string url;
 	std::vector<std::string> headers;
 	std::string body;
-	long response_code_ok;	
+	int64_t response_code_ok;
+	int response_retry_times;
+	int64_t curl_timeout;	
 	CURL *curl;
 	struct curl_slist *list;
 	std::string response;

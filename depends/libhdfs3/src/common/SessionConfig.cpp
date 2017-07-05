@@ -127,14 +127,19 @@ SessionConfig::SessionConfig(const Config & conf) {
         }, {
             &socketCacheCapacity, "dfs.client.socketcache.capacity", 16, bind(CheckRangeGE<int32_t>, _1, _2, 0)
         }, {
-			 &cryptoBufferSize, "hadoop.security.crypto.buffer.size", 8192,
+			&cryptoBufferSize, "hadoop.security.crypto.buffer.size", 8192
+		},{
+			&responseRetryTimes, "http.send.response.retry.times", 4
 		}
     };
     ConfigDefault<int64_t> i64Values [] = {
         {
             &defaultBlockSize, "dfs.default.blocksize", 64 * 1024 * 1024, bind(CheckMultipleOf<int64_t>, _1, _2, 512)
-        }
+        }, {
+            &curlTimeout, "http.curl.timeout", 20L
+		}
     };
+
     ConfigDefault<std::string> strValues [] = {
         {&defaultUri, "dfs.default.uri", "hdfs://localhost:8020" },
         {&rpcAuthMethod, "hadoop.security.authentication", "simple" },

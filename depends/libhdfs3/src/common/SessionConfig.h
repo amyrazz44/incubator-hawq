@@ -313,6 +313,14 @@ public:
         return cryptoBufferSize;
     }
 
+	int32_t getHttpClientResponseRetryTimes() const {
+        return responseRetryTimes;
+    }
+
+	int64_t getCurlTimeOut() const {
+        return curlTimeout;
+    }
+
 public:
     /*
      * rpc configure
@@ -374,6 +382,9 @@ public:
 	std::string kmsUrl;
 	std::string kmsAuthMethod;
 	int32_t cryptoBufferSize;
+	int32_t responseRetryTimes;
+	int64_t curlTimeout;
+	
 };
 
 }

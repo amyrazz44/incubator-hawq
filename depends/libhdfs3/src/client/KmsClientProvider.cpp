@@ -120,9 +120,10 @@ void KmsClientProvider::createKey(const std::string &keyName, const std::string 
 	hc->setURL(url);
 	hc->setHeaders(headers);
 	hc->setBody(body);
-	hc->setResponseSuccessCode(201);
-	std::string response = hc->HttpPost();
-	hc->destroy();
+	hc->setResponseRetryTime(conf->getHttpClientResponseRetryTimes());
+	hc->setCurlTimeout(conf->getCurlTimeOut());
+	hc->setExpectedResponseCode(201);
+	std::string response = hc->post();
 		
 } 
 
@@ -133,9 +134,10 @@ ptree KmsClientProvider::getKeyMetadata(const FileEncryptionInfo &encryptionInfo
 	
 	hc->init();
 	hc->setURL(url);
-	hc->setResponseSuccessCode(200);
-	std::string response = hc->HttpGet();
-	hc->destroy();
+	hc->setExpectedResponseCode(200);
+	hc->setResponseRetryTime(conf->getHttpClientResponseRetryTimes());
+	hc->setCurlTimeout(conf->getCurlTimeOut());
+	std::string response = hc->get();
 	ptree map = fromJson(response);
 	return map;
 
@@ -148,9 +150,10 @@ void KmsClientProvider::deleteKey(const FileEncryptionInfo &encryptionInfo)
 	
 	hc->init();
     hc->setURL(url);
-    hc->setResponseSuccessCode(200);
-	std::string response = hc->HttpDelete();
-    hc->destroy();
+	hc->setExpectedResponseCode(200);
+	hc->setResponseRetryTime(conf->getHttpClientResponseRetryTimes());
+	hc->setCurlTimeout(conf->getCurlTimeOut());
+	std::string response = hc->del();
 }
 
 ptree KmsClientProvider::decryptEncryptedKey(const FileEncryptionInfo &encryptionInfo)
@@ -174,9 +177,10 @@ ptree KmsClientProvider::decryptEncryptedKey(const FileEncryptionInfo &encryptio
 	hc->setURL(url);
 	hc->setHeaders(headers);
 	hc->setBody(body);
-	hc->setResponseSuccessCode(200);
-	std::string response = hc->HttpPost();
-	hc->destroy();
+	hc->setExpectedResponseCode(200);
+	hc->setResponseRetryTime(conf->getHttpClientResponseRetryTimes());
+	hc->setCurlTimeout(conf->getCurlTimeOut());
+	std::string response = hc->post();
 	// convert json to map
 	map = fromJson(response);
 	return map;

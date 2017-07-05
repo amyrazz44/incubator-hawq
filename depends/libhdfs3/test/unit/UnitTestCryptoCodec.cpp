@@ -82,7 +82,7 @@ TEST_F(TestCryptoCodec, KmsGetKey_Success) {
 	shared_ptr<MockHttpClient> hc(new MockHttpClient());	
 	kcp.setHttpClient(hc);
 
-	EXPECT_CALL(*hc, HttpPost()).Times(1).WillOnce(Return(hc->getPostResult(encryptionInfo)));
+	EXPECT_CALL(*hc, post()).Times(1).WillOnce(Return(hc->getPostResult(encryptionInfo)));
 	
 	ptree map = kcp.decryptEncryptedKey(encryptionInfo);
 	std::string KmsKey = map.get<std::string>("material");
@@ -123,7 +123,7 @@ TEST_F(TestCryptoCodec, encode_Success) {
 		shared_ptr<MockHttpClient> hc(new MockHttpClient());	
 		//kcp->setHttpClient(hc);
 		CryptoCodec es(&encryptionInfo, kcp, bufSize);
-    	//EXPECT_CALL(*hc, HttpPost()).Times(2).WillRepeatedly(Return(hc->getPostResult(encryptionInfo)));
+    	//EXPECT_CALL(*hc, post()).Times(2).WillRepeatedly(Return(hc->getPostResult(encryptionInfo)));
 		EXPECT_CALL(*kcp, decryptEncryptedKey(_)).Times(1).WillRepeatedly(Return(kcp->getEDKResult(encryptionInfo)));
 		std::string encodeStr = es.encode(buf, strlen(buf));
 		ASSERT_NE(0, memcmp(buf, encodeStr.c_str(), strlen(buf)));	
