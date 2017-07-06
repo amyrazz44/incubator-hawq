@@ -313,8 +313,8 @@ public:
         return cryptoBufferSize;
     }
 
-	int32_t getHttpClientResponseRetryTimes() const {
-        return responseRetryTimes;
+	int32_t getHttpRequestRetryTimes() const {
+        return httpRequestRetryTimes;
     }
 
 	int64_t getCurlTimeOut() const {
@@ -382,7 +382,7 @@ public:
 	std::string kmsUrl;
 	std::string kmsAuthMethod;
 	int32_t cryptoBufferSize;
-	int32_t responseRetryTimes;
+	int32_t httpRequestRetryTimes;
 	int64_t curlTimeout;
 	
 };

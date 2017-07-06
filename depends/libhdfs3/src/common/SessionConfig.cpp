@@ -129,14 +129,14 @@ SessionConfig::SessionConfig(const Config & conf) {
         }, {
 			&cryptoBufferSize, "hadoop.security.crypto.buffer.size", 8192
 		},{
-			&responseRetryTimes, "http.send.response.retry.times", 4
+			&httpRequestRetryTimes, "kms.send.request.retry.times", 4
 		}
     };
     ConfigDefault<int64_t> i64Values [] = {
         {
             &defaultBlockSize, "dfs.default.blocksize", 64 * 1024 * 1024, bind(CheckMultipleOf<int64_t>, _1, _2, 512)
         }, {
-            &curlTimeout, "http.curl.timeout", 20L
+            &curlTimeout, "kms.send.request.timeout", 20L
 		}
     };
 

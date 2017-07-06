@@ -41,7 +41,7 @@ public:
     ptree map;
     map.put("name", encryptionInfo.getKeyName());
     map.put("iv", encryptionInfo.getIv());
-    map.put("material", encryptionInfo.getKey());
+    map.put("material", KmsClientProvider::base64Encode(encryptionInfo.getKey()));
     return map;
   }
 

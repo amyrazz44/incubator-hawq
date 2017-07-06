@@ -107,11 +107,11 @@ TEST_F(TestCryptoCodec, encode_Success) {
 	shared_ptr<MockKmsClientProvider> kcp(new MockKmsClientProvider(auth, sconf));
 
 			
-	char buf[1024] = "encode hello world";
-	//char buffer[1024];
-	//Hdfs::FillBuffer(buffer, sizeof(buffer), 2048);
+	//char buf[1024] = "encode hello world";
+	char buf[1024];
+	Hdfs::FillBuffer(buf, sizeof(buf), 2048);
 
-	int32_t bufSize = 8192;
+	int32_t bufSize = 1024;
 
 	std::string Key[3] = {
 		"012345678901234567890123456789ab",
@@ -121,10 +121,9 @@ TEST_F(TestCryptoCodec, encode_Success) {
 	for(int i=0; i<3; i++) {
 		encryptionInfo.setKey(Key[i]);
 		shared_ptr<MockHttpClient> hc(new MockHttpClient());	
-		//kcp->setHttpClient(hc);
+		kcp->setHttpClient(hc);
 		CryptoCodec es(&encryptionInfo, kcp, bufSize);
-    	//EXPECT_CALL(*hc, post()).Times(2).WillRepeatedly(Return(hc->getPostResult(encryptionInfo)));
-		EXPECT_CALL(*kcp, decryptEncryptedKey(_)).Times(1).WillRepeatedly(Return(kcp->getEDKResult(encryptionInfo)));
+		EXPECT_CALL(*kcp, decryptEncryptedKey(_)).Times(2).WillRepeatedly(Return(kcp->getEDKResult(encryptionInfo)));
 		std::string encodeStr = es.encode(buf, strlen(buf));
 		ASSERT_NE(0, memcmp(buf, encodeStr.c_str(), strlen(buf)));	
 

@@ -30,22 +30,53 @@
 #include "FileEncryptionInfo.h"
 #include "KmsClientProvider.h"
 
+#define KEY_LENGTH_256 32
+#define KEY_LENGTH_128 16
+
 namespace Hdfs {
 
 class CryptoCodec {
 public:
+	/**
+     * Construct a CryptoCodec instance.
+	 * @param encryptionInfo the encryption info of file. 
+     * @param kcp a KmsClientProvider instance to get key from kms server.
+     * @param bufSize crypto buffer size.
+     */
     CryptoCodec(FileEncryptionInfo *encryptionInfo, std::shared_ptr<KmsClientProvider> kcp, int32_t bufSize);
 
+	/**
+     * Destroy a CryptoCodec instance.
+     */
 	virtual ~CryptoCodec();
 
+	/**
+	 * Encode buffer.
+	 */
 	virtual std::string encode(const char * buffer, int64_t size);
 	
+	/**
+	 * Decode buffer.
+	 */
 	virtual std::string decode(const char * buffer, int64_t size);
 
 
 private:
+
+	/**
+	 * Common encode/decode buffer method.
+	 * @param buffer the buffer to be encode/decode.
+	 * @param size the size of buffer.
+	 * @param enc true is for encode, false is for decode.
+	 * @return return the encode/decode buffer.
+	 */
 	std::string endecInternal(const char *buffer, int64_t size, bool enc);
+
+	/**
+ 	 * Get decrypted key from kms.
+	 */
 	std::string getDecryptedKeyFromKms();
+
 	std::shared_ptr<KmsClientProvider>		kcp;
 	FileEncryptionInfo					 	*encryptionInfo;
 	EVP_CIPHER_CTX							*encryptCtx;	

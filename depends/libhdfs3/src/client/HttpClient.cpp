@@ -60,38 +60,56 @@ HttpClient::HttpClient() : curl(NULL), list(NULL) {
 
 }
 
+/**
+ * Construct a HttpClient instance.
+ * @param url a url which is the address to send the request to the corresponding http server.
+ */
 HttpClient::HttpClient(const std::string &url) {
 	curl = NULL;
 	list = NULL;
 	this->url = url;
 }
 
+/**
+ * Destroy a HttpClient instance.
+ */
 HttpClient::~HttpClient()
 {
 	destroy();
 }
 
+/**
+ * Receive error string from curl.
+ */
 std::string HttpClient::errorString() {
 	if (strlen(errbuf) == 0)
 		return "";
 	return errbuf;
 }
 
+/**
+ * Curl call back function to receive the reponse messages.
+ * @return return the size of reponse messages. 
+ */
 size_t HttpClient::CurlWriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
 {
       size_t realsize = size * nmemb;
+	  if (userp == NULL || contents == NULL) {
+		  return 0;
+	  }
       ((std::string *)userp)->append((const char *)contents, realsize);
-
-	  LOG(INFO, "http response : %s", ((std::string *)userp)->c_str());
+	  LOG(DEBUG2, "HttpClient : Http response is : %s", ((std::string *)userp)->c_str());
       return realsize;
 }
 
+/**
+ * Init curl handler and set curl options.
+ */
 void HttpClient::init() {
 	if (!initialized)
 	{
-		CURLcode ret = curl_global_init(CURL_GLOBAL_ALL);
 		initialized = true;
-		if (ret) {
+		if (curl_global_init(CURL_GLOBAL_ALL)) {
 			THROW(HdfsIOException, "Cannot initialize curl client for KMS");
 		}
 	}
@@ -124,14 +142,17 @@ void HttpClient::init() {
     CURL_SETOPT_ERROR2(curl, CURLOPT_WRITEDATA, (void *)&response,
         "Cannot initialize body reader data in HttpClient: %s: %s");
 
-    /* some servers don't like requests that are made without a user-agent
+    /* Some servers don't like requests that are made without a user-agent
         field, so we provide one */
     CURL_SETOPT_ERROR2(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0",
-        "Cannot initialize user agent for KMS: %s: %s");
+        "Cannot initialize user agent in HttpClient: %s: %s");
 	list = NULL;
 
 }
 
+/**
+ * Do clean up for curl.
+ */
 void HttpClient::destroy() {
 	if (curl) {
 		curl_easy_cleanup(curl);
@@ -139,114 +160,178 @@ void HttpClient::destroy() {
 	if (list) {
 		curl_slist_free_all(list);
 	}
-
 }
 
+/**
+ * Set url for http client.
+ */
 void HttpClient::setURL(const std::string &url) {
 	this->url = url;
 }
 
-void HttpClient::setResponseRetryTime(int response_retry_times) {
-	this->response_retry_times = response_retry_times;
+/**
+ * Set retry times for http request which can be configured in config file.
+ */
+void HttpClient::setRequestRetryTimes(int request_retry_times) {
+	if (request_retry_times < 0) {
+		THROW(InvalidParameter, "HttpClient : Invalid value for request_retry_times.");
+	}
+	this->request_retry_times = request_retry_times;
 }
 
-void HttpClient::setCurlTimeout(int64_t curl_timeout) {
+/**
+ * Set request timeout which can be configured in config file.
+ */
+void HttpClient::setRequestTimeout(int64_t curl_timeout) {
+	if (curl_timeout < 0) {
+		THROW(InvalidParameter, "HttpClient : Invalid value for curl_timeout.");
+	}
 	this->curl_timeout = curl_timeout;
 }
 
+/**
+ * Set headers for http client.
+ */
 void HttpClient::setHeaders(const std::vector<std::string> &headers) {
 	if (!headers.empty()) {
 		this->headers = headers;
 		for (std::string header : headers) {
-        	list = curl_slist_append(list, header.c_str());
-    	}	
-    	if (!list) {
-        	THROW(HdfsIOException, "Cannot add header in HttpClient.");
-   		}
+			list = curl_slist_append(list, header.c_str());
+			if (!list) {
+				THROW(HdfsIOException, "Cannot add header in HttpClient.");
+			}
+		}	
 	}
 	else {
-		LOG(WARNING, "Headers is empty in HttpClient.");				
+		LOG(DEBUG1, "HttpClient : Header is empty.");				
 	}
 }
 
+
+/**
+ * Set body for http client.
+ */
 void HttpClient::setBody(const std::string &body) {
 	this->body = body;
 }
 
+/**
+ * Set expected response code.
+ */
 void HttpClient::setExpectedResponseCode(int64_t response_code_ok) {
 	this->response_code_ok = response_code_ok;
 }
 
+/**
+ * Http common method to get response info by sending request to http server.
+ * @param method : define different http methods.
+ * @return return response info.
+ */
 std::string HttpClient::httpCommon(httpMethod method) {
-	LOG(INFO, "http url is : %s", url.c_str());
-	CURL_SETOPT_ERROR2(curl, CURLOPT_HTTPHEADER, list,
-                "Cannot initialize headers in HttpClient: %s: %s");
+	
+    /* Set headers and url. */
+	if (list != NULL) {
+		CURL_SETOPT_ERROR2(curl, CURLOPT_HTTPHEADER, list,
+        	        "Cannot initialize headers in HttpClient: %s: %s");
+	} else {
+		LOG(DEBUG1, "HttpClient : Http Header is NULL");
+	}
 
-	CURL_SETOPT_ERROR2(curl, CURLOPT_URL, url.c_str(),
-            "Cannot initialize url in HttpClient: %s: %s");
+	if (curl != NULL) {
+		CURL_SETOPT_ERROR2(curl, CURLOPT_URL, url.c_str(),
+    	        "Cannot initialize url in HttpClient: %s: %s");
+	} else {
+		LOG(DEBUG1, "HttpClient : Http URL is NULL");
+	}
 
+	/* Set body based on different http method. */ 
 	switch(method) {
-		case E_GET:
+		case HTTP_GET:
 			break;
-		case E_POST:
+		case HTTP_POST:
 			CURL_SETOPT_ERROR2(curl, CURLOPT_COPYPOSTFIELDS, body.c_str(),
                 "Cannot initialize post data in HttpClient: %s: %s");
 			break;
-		case E_DELETE:
+		case HTTP_DELETE:
 			CURL_SETOPT_ERROR2(curl, CURLOPT_CUSTOMREQUEST, "DELETE",
                 "Cannot initialize set customer request in HttpClient: %s: %s");
 			break;
-		case E_PUT:
+		case HTTP_PUT:
 			CURL_SETOPT_ERROR2(curl, CURLOPT_CUSTOMREQUEST, "PUT",
                 "Cannot initialize set customer request in HttpClient: %s: %s");
-			
 			CURL_SETOPT_ERROR2(curl, CURLOPT_COPYPOSTFIELDS, body.c_str(),
                 "Cannot initialize post data in HttpClient: %s: %s");
 			break;
 	}
-	
+
+	/* Do several http request try according to request_retry_times until got the right reponse code. */	
 	int64_t response_code = -1;	
 
-	while (response_retry_times > 0 && response_code != response_code_ok) {
-		LOG(DEBUG2, "response_code_error_try time is %d", response_retry_times);
-		response_retry_times -= 1;
+	while (request_retry_times >= 0 && response_code != response_code_ok) {
+		request_retry_times -= 1;
 		response = "";
 		CURL_SETOPT_ERROR2(curl, CURLOPT_TIMEOUT, curl_timeout, 
-	    			"Send request to http server timeout: %s: %s");
+					"Send request to http server timeout: %s: %s");
 		CURL_PERFORM(curl, "Could not send request in HttpClient: %s %s");
 		CURL_GET_RESPONSE(curl, &response_code,
-        	        "Cannot get response code in HttpClient: %s: %s");
+					"Cannot get response code in HttpClient: %s: %s");
 	}
-
+	LOG(DEBUG1, "HttpClient : The http method is %d. The http url is %s. The http response is %s.", method, url.c_str(), response.c_str());
 	return response;
 }
 
+/**
+ * Http GET method.
+ */
 std::string HttpClient::get() {
-	httpMethod method = E_GET;
+	httpMethod method = HTTP_GET;
 	return httpCommon(method);
 }
 
+/**
+ * Http POST method.
+ */
 std::string HttpClient::post() {
-	httpMethod method = E_POST;
+	httpMethod method = HTTP_POST;
 	return httpCommon(method);
 }
 
+/**
+ * Http DELETE method.
+ */
 std::string HttpClient::del() {
-	httpMethod method = E_DELETE;
+	httpMethod method = HTTP_DELETE;
 	return httpCommon(method);
 }
 
+/**
+ * Http PUT method.
+ */
 std::string HttpClient::put() {
-	httpMethod method = E_PUT;
+	httpMethod method = HTTP_PUT;
 	return httpCommon(method);
 }
 
-	
+
+/**
+ *  URL encodes the given string. 
+ */	
 std::string HttpClient::escape(const std::string &data) {
-	return curl_easy_escape(curl, data.c_str(), data.length());
-}
+	if (curl) {
+		char *output = curl_easy_escape(curl, data.c_str(), data.length());
+		if (output) {
+			std::string out(output);
+			return out;
+		} else {
+			THROW(HdfsIOException, "HttpClient : Curl escape failed.");
+		}
+	} else {
+		LOG(WARNING, "HttpClient : Curl in escape method is NULL");
+	}
 
 }
+}
 
+/* Curl global init only can be done once. */
 bool Hdfs::HttpClient::initialized = false;
 
