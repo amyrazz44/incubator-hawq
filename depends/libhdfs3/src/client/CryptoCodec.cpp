@@ -100,10 +100,6 @@ std::string CryptoCodec::endecInternal(const char * buffer, int64_t size, bool e
 {
     std::string key = encryptionInfo->getKey();
     std::string iv = encryptionInfo->getIv();
-    LOG(INFO,
-            "CryptoCodec : endecInternal info. key:%s, iv:%s, buffer:%s, size:%d, is_encode:%d.",
-            key.c_str(), iv.c_str(), buffer, size, enc);
-	
     /* Get decrypted key from KMS */
     key = getDecryptedKeyFromKms();
 
