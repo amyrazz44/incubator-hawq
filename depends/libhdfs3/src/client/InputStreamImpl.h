@@ -37,6 +37,8 @@
 #include "server/LocatedBlocks.h"
 #include "SessionConfig.h"
 #include "Unordered.h"
+#include "CryptoCodec.h"
+#include "KmsClientProvider.h"
 
 #ifdef MOCK
 #include "TestDatanodeStub.h"
@@ -101,6 +103,26 @@ public:
      * @return return a printable string
      */
     std::string toString();
+    
+    /**
+     * Get KmsClientProvider.
+     */
+    shared_ptr<KmsClientProvider> getKmsClientProvider();
+
+    /**
+     * Set KmsClientProvider.
+     */
+    void setKmsClientProvider(shared_ptr<KmsClientProvider> kcp);
+
+    /**
+     * Get CryptoCodec.
+     */
+    shared_ptr<CryptoCodec> getCryptoCodec();
+
+    /**
+     * Set CryptoCodec.
+     */
+    void setCryptoCodec(shared_ptr<CryptoCodec> cryptoCodec);
 
 private:
     bool choseBestNode();
@@ -132,7 +154,6 @@ private:
     int64_t lastBlockBeingWrittenLength;
     int64_t prefetchSize;
     PeerCache *peerCache;
-    RpcAuth auth;
     shared_ptr<BlockReader> blockReader;
     shared_ptr<FileSystemInter> filesystem;
     shared_ptr<LocatedBlock> curBlock;
@@ -141,6 +162,11 @@ private:
     std::string path;
     std::vector<DatanodeInfo> failedNodes;
     std::vector<char> localReaderBuffer;
+    shared_ptr<CryptoCodec> cryptoCodec;
+    shared_ptr<KmsClientProvider> kcp;
+    RpcAuth auth;
+    shared_ptr<RpcAuth> enAuth;
+    FileStatus fileStatus;
 
 #ifdef MOCK
 private:
