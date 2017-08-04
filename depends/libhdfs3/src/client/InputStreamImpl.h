@@ -154,6 +154,7 @@ private:
     int64_t lastBlockBeingWrittenLength;
     int64_t prefetchSize;
     PeerCache *peerCache;
+    RpcAuth auth;
     shared_ptr<BlockReader> blockReader;
     shared_ptr<FileSystemInter> filesystem;
     shared_ptr<LocatedBlock> curBlock;
@@ -164,7 +165,6 @@ private:
     std::vector<char> localReaderBuffer;
     shared_ptr<CryptoCodec> cryptoCodec;
     shared_ptr<KmsClientProvider> kcp;
-    RpcAuth auth;
     shared_ptr<RpcAuth> enAuth;
     FileStatus fileStatus;
 

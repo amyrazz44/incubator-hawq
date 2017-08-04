@@ -444,7 +444,6 @@ void InputStreamImpl::openInternal(shared_ptr<FileSystemInter> fs, const char * 
                 cryptoCodec = shared_ptr<CryptoCodec> (
                         new CryptoCodec(fileEnInfo, kcp, conf->getCryptoBufferSize()));
 
-                //int64_t file_length = fileStatus.getLength();
                 int64_t file_length = 0;
                 int ret = cryptoCodec->init(CryptoMethod::DECRYPT, file_length);
                 if (ret < 0) {
@@ -760,13 +759,15 @@ void InputStreamImpl::seekInternal(int64_t pos) {
     }
 
     try {
-        if (blockReader && pos > cursor && pos < endOfCurBlock) {
+        if (blockReader && pos > cursor && pos < endOfCurBlock && (pos - cursor) < blockReader->available()) {
             blockReader->skip(pos - cursor);
             cursor = pos;
             if (cryptoCodec) {
-                int ret = cryptoCodec->init(CryptoMethod::DECRYPT, cursor);
+                int ret = cryptoCodec->resetStreamOffset(CryptoMethod::DECRYPT,
+                        cursor);
                 if (ret < 0) {
-                    THROW(HdfsIOException, "init CryptoCodec failed, file:%s", this->path.c_str());
+                    THROW(HdfsIOException, "init CryptoCodec failed, file:%s",
+                            this->path.c_str());
                 }
             }
             return;
@@ -790,6 +791,12 @@ void InputStreamImpl::seekInternal(int64_t pos) {
     endOfCurBlock = 0;
     blockReader.reset();
     cursor = pos;
+    if (cryptoCodec) {
+        int ret = cryptoCodec->resetStreamOffset(CryptoMethod::DECRYPT, cursor);
+        if (ret < 0) {
+            THROW(HdfsIOException, "init CryptoCodec failed, file:%s", this->path.c_str());
+        }
+    }
 }
 
 /**
