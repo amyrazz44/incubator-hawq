@@ -71,6 +71,9 @@ namespace Hdfs {
 		 */
 		virtual int init(CryptoMethod crypto_method, int64_t stream_offset = 0);
 
+		//TODO
+		//virtual void reset_stream_offset(int64_t stream_offset);
+
 	private:
 
 		/**

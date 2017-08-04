@@ -444,7 +444,8 @@ void InputStreamImpl::openInternal(shared_ptr<FileSystemInter> fs, const char * 
                 cryptoCodec = shared_ptr<CryptoCodec> (
                         new CryptoCodec(fileEnInfo, kcp, conf->getCryptoBufferSize()));
 
-                int64_t file_length = fileStatus.getLength();
+                //int64_t file_length = fileStatus.getLength();
+                int64_t file_length = 0;
                 int ret = cryptoCodec->init(CryptoMethod::DECRYPT, file_length);
                 if (ret < 0) {
                     THROW(HdfsIOException, "init CryptoCodec failed, file:%s", this->path.c_str());
