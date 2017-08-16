@@ -739,6 +739,7 @@ ntuplestore_create_readerwriter(const char *filename, int maxBytes, bool isWrite
 	if(isWriter)
 	{
 		store = ntuplestore_create(maxBytes);
+		elog(LOG, "Wrong fd : filename in BufFileOpenFile before ExecWorkFile_Create is %s", filename);
 		store->pfile = ExecWorkFile_Create(filenameprefix, BUFFILE,
 				true /*delOnClose */, 0 /* compressType */);
 		store->rwflag = NTS_IS_WRITER;
@@ -755,9 +756,11 @@ ntuplestore_create_readerwriter(const char *filename, int maxBytes, bool isWrite
 		store->cached_workfiles_loaded = false;
 		store->workfiles_created = false;
 
+		elog(LOG, "Wrong fd : filename in BufFileOpenFile before ExecWorkFile_Open is %s", filename);
 		store->pfile = ExecWorkFile_Open(filenameprefix, BUFFILE,
 				false /* delOnClose */,
 				0 /* compressType */);
+
 
 		store->plobfile = ExecWorkFile_Open(filenamelob, BUFFILE,
 				false /* delOnClose */,

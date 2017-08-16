@@ -195,6 +195,7 @@ BufFileOpenFile(const char * fileName, bool create, bool delOnClose, bool interX
 							  create,
 							  delOnClose,
 							  closeAtEOXact); /* closeAtEOXact */
+	elog(LOG, "Wrong fd : pfile in BufFileOpenFile is %d", pfile);
 	/*
 	 * If we are trying to open an existing file and it failed,
 	 * signal this to the caller.
@@ -271,6 +272,7 @@ BufFileClose(BufFile *file)
 	}
 
 
+	elog(LOG, "Wrong fd : file in BufFileClose is %d",file->file);
 	FileClose(file->file);
 
 	/* release the buffer space */

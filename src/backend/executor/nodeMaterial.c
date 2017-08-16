@@ -251,7 +251,11 @@ ExecMaterial(MaterialState *node)
 					node->share_lk_ctxt = shareinput_writer_notifyready(ma->share_id, ma->nsharer_xslice,
 							estate->es_plannedstmt->planGen);
 					if(sisc_writer_lock_fd > 0)
-						close(sisc_writer_lock_fd);
+					{
+					    elog(LOG, "Wrong fd : sisc_writer_lock_fd in ExecMaterial is %d", sisc_writer_lock_fd);
+					    close(sisc_writer_lock_fd);
+					}
+
 				}
 			}
 			return NULL;
@@ -780,6 +784,7 @@ static void mkLockFileForWriter(int size, int share_id, char * name)
 	generate_lock_file_name(lock_file, size, share_id, name);
 	elog(DEBUG3, "The lock file for writer in SISC is %s", lock_file);
 	sisc_writer_lock_fd = open(lock_file, O_CREAT, S_IRWXU);
+	elog(LOG, "Wrong fd : sisc_writer_lock_fd in mkLockFileForWriter is %d.", sisc_writer_lock_fd);
 	if(sisc_writer_lock_fd < 0)
 	{
 		elog(ERROR, "Could not create lock file %s for writer in SISC. The error number is %d", lock_file, errno);

@@ -83,9 +83,11 @@ ExecWorkFile_Create(const char *fileName,
 		case BUFFILE:
 			file = (void *) BufFileCreateFile(fileName, delOnClose, false /* interXact */ );
 			BufFileSetWorkfile(file);
+			elog(LOG, "Wrong fd : file in ExecWorkFile_Create is %s, file type is BUFFILE.", file);
 			break;
 		case BFZ:
 			file = (void *)bfz_create(fileName, delOnClose, compressType);
+			elog(LOG, "Wrong fd : file in ExecWorkFile_Create is %s, file type is BFZ.", file);
 			break;
 		default:
 			ereport(LOG,
@@ -448,6 +450,7 @@ ExecWorkFile_Close(ExecWorkFile *workfile, bool canReportError)
 	switch(workfile->fileType)
 	{
 		case BUFFILE:
+		    elog(LOG, "Wrong fd : file type is BUFFILE in ExecWorkFile_Close.");
 			BufFileClose((BufFile *)workfile->file);
 			break;
 			
@@ -462,7 +465,7 @@ ExecWorkFile_Close(ExecWorkFile *workfile, bool canReportError)
 				/* Adjust the size with WorkfileDiskspace to our actual size */
 				ExecWorkFile_AdjustBFZSize(workfile, file_size);
 			}
-
+			elog(LOG, "Wrong fd : file type is BFZ in ExecWorkFile_Close.");
 			bfz_close(bfz_file, true, canReportError);
 			break;
 		default:
