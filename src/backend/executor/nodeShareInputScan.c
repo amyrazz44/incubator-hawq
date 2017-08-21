@@ -1081,6 +1081,12 @@ writer_wait_for_acks(ShareInput_Lk_Context *pctxt, int share_id, int xslice)
 				elog(DEBUG1, "SISC WRITER (shareid=%d, slice=%d): notify ready succeed 1, xslice remaining %d",
 						share_id, currentSliceId, ack_needed);
 			}
+			if(ack_needed == 0 && sisc_writer_lock_fd > 0)
+			{
+			    elog(LOG, "Wrong fd : sisc_writer_lock_fd in ExecMaterial is %d", sisc_writer_lock_fd);
+			    close(sisc_writer_lock_fd);
+			}
+
 		}
 		else if(numReady==0)
 		{

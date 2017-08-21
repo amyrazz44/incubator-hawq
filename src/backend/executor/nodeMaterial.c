@@ -50,7 +50,7 @@
 #include "postmaster/primary_mirror_mode.h"
 
 
-static int sisc_writer_lock_fd = -1;
+
 static void ExecMaterialExplainEnd(PlanState *planstate, struct StringInfoData *buf);
 static void ExecChildRescan(MaterialState *node, ExprContext *exprCtxt);
 static void DestroyTupleStore(MaterialState *node);
@@ -250,11 +250,6 @@ ExecMaterial(MaterialState *node)
 
 					node->share_lk_ctxt = shareinput_writer_notifyready(ma->share_id, ma->nsharer_xslice,
 							estate->es_plannedstmt->planGen);
-					if(sisc_writer_lock_fd > 0)
-					{
-					    elog(LOG, "Wrong fd : sisc_writer_lock_fd in ExecMaterial is %d", sisc_writer_lock_fd);
-					    //close(sisc_writer_lock_fd);
-					}
 				}
 			}
 			return NULL;

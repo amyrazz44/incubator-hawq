@@ -17,6 +17,7 @@
 #include "nodes/execnodes.h"
 #include "executor/nodeShareInputScan.h"
 
+static int sisc_writer_lock_fd = -1;
 extern int	ExecCountSlotsMaterial(Material *node);
 extern MaterialState *ExecInitMaterial(Material *node, EState *estate, int eflags);
 extern TupleTableSlot *ExecMaterial(MaterialState *node);

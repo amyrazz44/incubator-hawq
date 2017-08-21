@@ -30,6 +30,7 @@
 #define NODESHAREINPUTSCAN_H
 
 #include "nodes/execnodes.h"
+#include "executor/nodeMaterial.h"
 
 extern int ExecCountSlotsShareInputScan(ShareInputScan* node);
 extern ShareInputScanState *ExecInitShareInputScan(ShareInputScan *node, EState *estate, int eflags);
