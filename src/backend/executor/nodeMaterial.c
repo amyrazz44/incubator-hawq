@@ -253,9 +253,8 @@ ExecMaterial(MaterialState *node)
 					if(sisc_writer_lock_fd > 0)
 					{
 					    elog(LOG, "Wrong fd : sisc_writer_lock_fd in ExecMaterial is %d", sisc_writer_lock_fd);
-					    close(sisc_writer_lock_fd);
+					    //close(sisc_writer_lock_fd);
 					}
-
 				}
 			}
 			return NULL;
