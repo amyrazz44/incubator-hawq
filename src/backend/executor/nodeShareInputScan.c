@@ -564,8 +564,8 @@ char *joint_lock_file_name(ShareInput_Lk_Context *lk_ctxt, char *name)
 	{
 		strncat(lock_file, lk_ctxt->lkname_done, MAXPGPATH - strlen(lock_file) - 1);
 	}
-	strncat(lock_file, name, MAXPGPATH - strlen(lock_file) -1);
-	return lock_file;
+	strncat(lock_file, name, MAXPGPATH - strlen(lock_file) - 1);
+	return lock_file;	
 }
 
 void drop_lock_files(ShareInput_Lk_Context *lk_ctxt)
@@ -584,7 +584,7 @@ void drop_lock_files(ShareInput_Lk_Context *lk_ctxt)
 		elog(DEBUG3, "Writer's lock files %s has been dropped already in SISC", writer_lock_file);
 	}
 	pfree(writer_lock_file);
-	reader_lock_file = joint_lock_file_name(lk_ctxt, "reader");
+	reader_lock_file = joint_lock_file_name(lk_ctxt, "reader");	
 	if(access(reader_lock_file, F_OK) == 0)
 	{
 		elog(DEBUG3, "Drop reader's lock files %s in SISC", reader_lock_file);
@@ -595,6 +595,7 @@ void drop_lock_files(ShareInput_Lk_Context *lk_ctxt)
 		elog(DEBUG3, "Reader's lock files %s has been dropped already in SISC", reader_lock_file);
 	}
 	pfree(reader_lock_file);
+	
 }
 
 static void shareinput_clean_lk_ctxt(ShareInput_Lk_Context *lk_ctxt)
@@ -602,6 +603,7 @@ static void shareinput_clean_lk_ctxt(ShareInput_Lk_Context *lk_ctxt)
 	int err;
 
 	elog(DEBUG1, "shareinput_clean_lk_ctxt cleanup lk ctxt %p", lk_ctxt);
+	
 
 	if(lk_ctxt->readyfd >= 0)
 	{
@@ -781,13 +783,15 @@ shareinput_reader_waitready(int share_id, PlanGenerator planGen)
 	struct timeval tval;
 	int n;
 	char a;
-	int file_exists = -1;
-	int timeout_interval = 0;
-	bool flag = false; //A tag for file exists or not.
-	int lock_fd = -1;
-	int lock = -1;
 	bool is_lock_firsttime = true;
+	bool *p_is_lock_firsttime = &is_lock_firsttime;
+	bool flag = false; //A tag for file exists or not.
+	bool *p_flag = &flag;
+	int timeout_interval = 0;
+	int *p_timeout_interval = &timeout_interval;
+
 	char *writer_lock_file = NULL; //current path for lock file.
+	int isbreak = -1;
 
 	ShareInput_Lk_Context *pctxt = gp_malloc(sizeof(ShareInput_Lk_Context));
 
@@ -841,7 +845,6 @@ shareinput_reader_waitready(int share_id, PlanGenerator planGen)
 
 		MPP_FD_ZERO(&rset);
 		MPP_FD_SET(pctxt->readyfd, &rset);
-
 		tval.tv_sec = 1;
 		tval.tv_usec = 0;
 
@@ -875,70 +878,11 @@ shareinput_reader_waitready(int share_id, PlanGenerator planGen)
 		}
 		else if(n==0)
 		{
-			file_exists = access(writer_lock_file, F_OK);
-			if(file_exists != 0)
-			{
-				elog(DEBUG3, "Wait lock file for writer time out interval is %d", timeout_interval);
-				if(timeout_interval >= share_input_scan_wait_lockfile_timeout || flag == true) //If lock file never exists or disappeared, reader will no longer waiting for writer
-				{
-					elog(LOG, "SISC READER (shareid=%d, slice=%d): Wait ready time out and break",
-						share_id, currentSliceId);
-					pfree(writer_lock_file);
-					break;
-				}
-				timeout_interval += tval.tv_sec * 1000 + tval.tv_usec;
-			}
-			else
-			{
-				elog(LOG, "writer lock file of shareinput_reader_waitready() is %s", writer_lock_file);
-				flag = true;
-				lock_fd = open(writer_lock_file, O_RDONLY);
-				if(lock_fd < 0)
-				{
-					elog(DEBUG3, "Open writer's lock file %s failed!, error number is %d", writer_lock_file, errno);
-					continue;
-				}
-				lock = flock(lock_fd, LOCK_EX | LOCK_NB);
-				if(lock == -1)
-				{
-					/*
-					 * Reader try to lock the lock file which writer created until locked the lock file successfully 
-                     * which means that writer process quit. If reader lock the lock file failed, it means that writer
-					 * process is healthy.
-					 */
-					elog(DEBUG3, "Lock writer's lock file %s failed!, error number is %d", writer_lock_file, errno);
-				}
-				else if(lock == 0)
-				{
-					/*
-					 * There is one situation to consider about.
-					 * Writer need a time interval to lock the lock file after the lock file has been created.
-					 * So, if reader lock the lock file ahead of writer, we should unlock it.
-					 * If reader lock the lock file after writer, it means that writer process has abort.
-					 * We should break the loop to make sure reader no longer wait for writer.
-					 */
-					if(is_lock_firsttime == true)
-					{
-						lock = flock(lock_fd, LOCK_UN);
-						is_lock_firsttime = false;
-						elog(DEBUG3, "Lock writer's lock file %s first time successfully in SISC! Unlock it.", writer_lock_file);
-						continue;
-					}
-					else
-					{
-						elog(LOG, "Lock writer's lock file %s successfully in SISC!", writer_lock_file);
-						/* Retry to close the fd in case there is interruption from signal */
-						while ((close(lock_fd) < 0) && (errno == EINTR))
-						{
-							elog(DEBUG3, "Failed to close SISC temporary file due to strerror(errno)");
-						}
-						pfree(writer_lock_file);
-						break;
-					}
-				}
-				elog(DEBUG1, "SISC READER (shareid=%d, slice=%d): Wait ready time out once",
-						share_id, currentSliceId);
-			}
+		    isbreak = handle_select_timeout(writer_lock_file, p_is_lock_firsttime, p_timeout_interval, tval, p_flag, share_id);
+		    if (isbreak == 0)
+		        break;
+		    else
+		        continue;
 		}
 		else
 		{
@@ -951,6 +895,66 @@ shareinput_reader_waitready(int share_id, PlanGenerator planGen)
 	return (void *) pctxt;
 }
 
+int handle_select_timeout(char *lock_file, bool *is_lock_firsttime, int *timeout_interval, struct timeval tval, bool *flag, int share_id)
+{
+    int file_exists = -1;
+    int lock_fd = -1;
+    int lock = -1;
+
+    file_exists = access(lock_file, F_OK);
+    if (file_exists != 0) {
+        elog(DEBUG3, "Wait lock file for writer time out interval is %d", timeout_interval);
+        //If lock file never exists or disappeared, reader will no longer waiting for writer.
+        if (*timeout_interval >= share_input_scan_wait_lockfile_timeout|| *flag == true){
+            elog(LOG, "SISC READER (shareid=%d, slice=%d): Wait ready time out and break",
+                    share_id, currentSliceId);
+            pfree(lock_file);
+            return 0;
+        }
+        *timeout_interval += tval.tv_sec * 1000 + tval.tv_usec;
+    } else {
+        elog(LOG, "writer lock file of shareinput_reader_waitready() is %s", lock_file);
+        *flag = true;
+        lock_fd = open(lock_file, O_RDONLY);
+        if (lock_fd < 0) {
+            elog(DEBUG3, "Open writer's lock file %s failed!, error number is %d", lock_file, errno);
+            return 1;
+        }
+        lock = flock(lock_fd, LOCK_EX | LOCK_NB);
+        if (lock == -1) {
+            /*
+             * Reader try to lock the lock file which writer created until locked the lock file successfully
+             * which means that writer process quit. If reader lock the lock file failed, it means that writer
+             * process is healthy.
+             */
+            elog(DEBUG3, "Lock writer's lock file %s failed!, error number is %d", lock_file, errno);
+        } else if (lock == 0) {
+            /*
+             * There is one situation to consider about.
+             * Writer need a time interval to lock the lock file after the lock file has been created.
+             * So, if reader lock the lock file ahead of writer, we should unlock it.
+             * If reader lock the lock file after writer, it means that writer process has abort.
+             * We should break the loop to make sure reader no longer wait for writer.
+             */
+            if (*is_lock_firsttime == true) {
+                lock = flock(lock_fd, LOCK_UN);
+                *is_lock_firsttime = false;
+                elog(DEBUG3, "Lock writer's lock file %s first time successfully in SISC! Unlock it.", lock_file);
+                return 1;
+            } else {
+                elog(LOG, "Lock writer's lock file %s successfully in SISC!", lock_file);
+                /* Retry to close the fd in case there is interruption from signal */
+                while ((close(lock_fd) < 0) && (errno == EINTR)) {
+                    elog(DEBUG3, "Failed to close SISC temporary file due to strerror(errno)");
+                }
+                pfree(lock_file);
+                return 0;
+            }
+        }
+        elog(DEBUG1, "SISC READER (shareid=%d, slice=%d): Wait ready time out once",
+                share_id, currentSliceId);
+    }
+}
 /*
  * shareinput_writer_notifyready
  *
@@ -1081,6 +1085,7 @@ writer_wait_for_acks(ShareInput_Lk_Context *pctxt, int share_id, int xslice)
 			}
 			if(ack_needed == 0 && sisc_writer_lock_fd > 0)
 			{
+			    elog(LOG, "Wrong fd : sisc_writer_lock_fd in ExecMaterial is %d", sisc_writer_lock_fd);
 			    close(sisc_writer_lock_fd);
 			}
 
