@@ -791,7 +791,7 @@ shareinput_reader_waitready(int share_id, PlanGenerator planGen)
 	int *p_timeout_interval = &timeout_interval;
 
 	char *writer_lock_file = NULL; //current path for lock file.
-	int isbreak = -1;
+	int is_break = -1;
 
 	ShareInput_Lk_Context *pctxt = gp_malloc(sizeof(ShareInput_Lk_Context));
 
@@ -878,10 +878,10 @@ shareinput_reader_waitready(int share_id, PlanGenerator planGen)
 		}
 		else if(n==0)
 		{
-		    isbreak = handle_select_timeout(writer_lock_file, p_is_lock_firsttime, p_timeout_interval, tval, p_flag, share_id);
-		    if (isbreak == 0)
+		    is_break = handle_select_timeout(writer_lock_file, p_is_lock_firsttime, p_timeout_interval, tval, p_flag, share_id);
+		    if (is_break == 0)
 		        break;
-		    else
+		    else if(is_break == 1)
 		        continue;
 		}
 		else
@@ -895,7 +895,8 @@ shareinput_reader_waitready(int share_id, PlanGenerator planGen)
 	return (void *) pctxt;
 }
 
-int handle_select_timeout(char *lock_file, bool *is_lock_firsttime, int *timeout_interval, struct timeval tval, bool *flag, int share_id)
+int handle_select_timeout(char *lock_file, bool *is_lock_firsttime, int *timeout_interval,
+        struct timeval tval, bool *flag, int share_id, int reader_num = 0)
 {
     int file_exists = -1;
     int lock_fd = -1;
@@ -928,6 +929,12 @@ int handle_select_timeout(char *lock_file, bool *is_lock_firsttime, int *timeout
              * process is healthy.
              */
             elog(DEBUG3, "Lock writer's lock file %s failed!, error number is %d", lock_file, errno);
+            if (reader_num > 0)
+            {
+                reader_num --;
+                flag = false;
+                //??? close(lock_fd)
+            }
         } else if (lock == 0) {
             /*
              * There is one situation to consider about.
@@ -1085,7 +1092,6 @@ writer_wait_for_acks(ShareInput_Lk_Context *pctxt, int share_id, int xslice)
 			}
 			if(ack_needed == 0 && sisc_writer_lock_fd > 0)
 			{
-			    elog(LOG, "Wrong fd : sisc_writer_lock_fd in ExecMaterial is %d", sisc_writer_lock_fd);
 			    close(sisc_writer_lock_fd);
 			}
 
@@ -1148,6 +1154,16 @@ shareinput_writer_waitdone(void *ctxt, int share_id, int nsharer_xslice)
 	char z;
 	int ack_needed = nsharer_xslice - pctxt->zcnt;
 
+	bool is_lock_firsttime = true;
+	bool *p_is_lock_firsttime = &is_lock_firsttime;
+	bool flag = false; //A tag for file exists or not.
+	bool *p_flag = &flag;
+	int timeout_interval = 0;
+	int *p_timeout_interval = &timeout_interval;
+
+	char *writer_lock_file = NULL; //current path for lock file.
+	int is_break = -1;
+
 	elog(DEBUG1, "SISC WRITER (shareid=%d, slice=%d): waiting for DONE message from %d readers",
 							share_id, currentSliceId, ack_needed);
 
@@ -1191,8 +1207,17 @@ shareinput_writer_waitdone(void *ctxt, int share_id, int nsharer_xslice)
 		}
 		else if(numReady==0)
 		{
-			elog(DEBUG1, "SISC WRITER (shareid=%d, slice=%d): wait done timeout once",
-					share_id, currentSliceId);
+		    while(reader_num > 0)
+		    {
+		        is_break = handle_select_timeout(writer_lock_file, p_is_lock_firsttime,
+		                p_timeout_interval, tval, p_flag, share_id, reader_num);
+		        if(is_break == 0) //!!??
+		            break;
+		        else if(is_break == 1)//!!??
+		            continue;
+
+		    }
+
 		}
 		else 
 		{
