@@ -633,6 +633,181 @@ cleanup:
 	PG_RETURN_BOOL(ret);
 }
 
+void add_segment_status(int32_t id,
+						char* hostname,
+						char* address,
+						uint32_t port,
+						char role,
+						char status,
+						char* description)
+{
+	int	libpqres = CONNECTION_OK;
+	PGconn *conn = NULL;
+	char conninfo[512];
+	PQExpBuffer sql = NULL;
+	PGresult* result = NULL;
+
+	if (status == SEGMENT_STATUS_UP)
+		Assert(strlen(description) == 0);
+	else if (status == SEGMENT_STATUS_DOWN)
+		Assert(strlen(description) != 0);
+
+	/* For segment nodes only. */
+	if (id >= REGISTRATION_ORDER_OFFSET)
+	{
+		if (status == SEGMENT_STATUS_UP)
+			MarkSegmentUp(id - REGISTRATION_ORDER_OFFSET);
+		else if (status == SEGMENT_STATUS_DOWN)
+			MarkSegmentDown(id - REGISTRATION_ORDER_OFFSET);
+		else
+			elog(ERROR, "Unrecognized segment status character: '%c' "
+						"(Should be one of '%c' and '%c')", status,
+						SEGMENT_STATUS_UP, SEGMENT_STATUS_DOWN);
+	}
+
+	sprintf(conninfo, "options='-c gp_session_role=UTILITY -c allow_system_table_mods=dml' "
+			"dbname=template1 port=%d connect_timeout=%d", master_addr_port, CONNECT_TIMEOUT);
+	conn = PQconnectdb(conninfo);
+	if ((libpqres = PQstatus(conn)) != CONNECTION_OK)
+	{
+		elog(WARNING, "Fail to connect database when update segment's status "
+					  "in segment configuration catalog table, error code: %d, %s",
+					  libpqres,
+					  PQerrorMessage(conn));
+		PQfinish(conn);
+		return;
+	}
+
+	result = PQexec(conn, "BEGIN");
+	if (!result || PQresultStatus(result) != PGRES_COMMAND_OK)
+	{
+		elog(WARNING, "Fail to run SQL: %s when update segment's status "
+					  "in segment configuration catalog table, reason : %s",
+					  "BEGIN",
+					  PQresultErrorMessage(result));
+		goto cleanup;
+	}
+	PQclear(result);
+
+	sql = createPQExpBuffer();
+	if (role == SEGMENT_ROLE_PRIMARY)
+	{
+		appendPQExpBuffer(sql,
+						  "INSERT INTO gp_segment_configuration"
+						  "(registration_order,role,status,port,hostname,address,description) "
+						  "VALUES "
+						  "(%d,'%c','%c',%d,'%s','%s','%s')",
+						  id,role,status,port,hostname,address,description);
+	}
+	else
+	{
+		appendPQExpBuffer(sql,
+						  "INSERT INTO gp_segment_configuration(registration_order,role,status,port,hostname,address) "
+						  "VALUES "
+						  "(%d,'%c','%c',%d,'%s','%s')",
+						  id,role,status,port,hostname,address);
+	}
+	result = PQexec(conn, sql->data);
+	if (!result || PQresultStatus(result) != PGRES_COMMAND_OK)
+	{
+		elog(WARNING, "Fail to run SQL: %s when update segment's status "
+					  "in segment configuration catalog table, reason : %s",
+					  sql->data,
+					  PQresultErrorMessage(result));
+		goto cleanup;
+	}
+	PQclear(result);
+
+	result = PQexec(conn, "COMMIT");
+	if (!result || PQresultStatus(result) != PGRES_COMMAND_OK)
+	{
+		elog(WARNING, "Fail to run SQL: %s when update segment's status "
+					  "in segment configuration catalog table, reason : %s",
+					  "COMMIT",
+					  PQresultErrorMessage(result));
+		goto cleanup;
+	}
+
+	elog(LOG, "Update a segment(registration_order:%d)'s status to '%c',"
+			  "description to '%s', "
+			  "in segment configuration catalog table,",
+			  id, status, description);
+
+cleanup:
+	if(sql)
+		destroyPQExpBuffer(sql);
+	if(result)
+		PQclear(result);
+	PQfinish(conn);
+}
+
+
+void delete_segment_status(int32_t id)
+{
+    int	libpqres = CONNECTION_OK;
+	PGconn *conn = NULL;
+	char conninfo[512];
+	PQExpBuffer sql = NULL;
+	PGresult* result = NULL;
+
+	sprintf(conninfo, "options='-c gp_session_role=UTILITY -c allow_system_table_mods=dml' "
+			"dbname=template1 port=%d connect_timeout=%d", master_addr_port, CONNECT_TIMEOUT);
+	conn = PQconnectdb(conninfo);
+	if ((libpqres = PQstatus(conn)) != CONNECTION_OK)
+	{
+		elog(WARNING, "Fail to connect database when update segment's status "
+					  "in segment configuration catalog table, error code: %d, %s",
+					  libpqres,
+					  PQerrorMessage(conn));
+		PQfinish(conn);
+		return;
+	}
+
+	result = PQexec(conn, "BEGIN");
+	if (!result || PQresultStatus(result) != PGRES_COMMAND_OK)
+	{
+		elog(WARNING, "Fail to run SQL: %s when update segment's status "
+					  "in segment configuration catalog table, reason : %s",
+					  "BEGIN",
+					  PQresultErrorMessage(result));
+		goto cleanup;
+	}
+	PQclear(result);
+
+	sql = createPQExpBuffer();
+	appendPQExpBuffer(sql, "DELETE FROM gp_segment_configuration WHERE registration_order=%d",id);
+	result = PQexec(conn, sql->data);
+	if (!result || PQresultStatus(result) != PGRES_COMMAND_OK)
+	{
+		elog(WARNING, "Fail to run SQL: %s when update segment's status "
+					  "in segment configuration catalog table, reason : %s",
+					  sql->data,
+					  PQresultErrorMessage(result));
+		goto cleanup;
+	}
+	PQclear(result);
+
+	result = PQexec(conn, "COMMIT");
+	if (!result || PQresultStatus(result) != PGRES_COMMAND_OK)
+	{
+		elog(WARNING, "Fail to run SQL: %s when update segment's status "
+					  "in segment configuration catalog table, reason : %s",
+					  "COMMIT",
+					  PQresultErrorMessage(result));
+		goto cleanup;
+	}
+
+	elog(LOG, "Delete a segment(registration_order:%d) "
+			  "in segment configuration catalog table,",
+			  id);
+
+cleanup:
+	if(sql)
+		destroyPQExpBuffer(sql);
+	if(result)
+		PQclear(result);
+	PQfinish(conn);
+}
 /*
  *  update a segment's status in gp_segment_configuration table.
  *  id : registration order of this segment
@@ -962,6 +1137,7 @@ int addHAWQSegWithSegStat(SegStat segstat, bool *capstatchanged)
 
 		res = getSegIDByHostAddr((uint8_t *)(addr->Address), addr->Length, &segid);
 	}
+	elog(LOG, "res in addHAWQSegWithSegStat is %d, hostname is %s, segid is %d",res, hostname, segid);
 
 	/* CASE 1. It is a new host. */
 	if ( res != FUNC_RETURN_OK )
@@ -3367,21 +3543,21 @@ int notifyToBeAcceptedGRMContainersToRMSEG(void)
 		Assert(firstctn != NULL);
 		char *hostname = firstctn->HostName;
 
-		if (rm_resourcepool_test_filename == NULL ||
-			rm_resourcepool_test_filename[0] == '\0')
-		{
-			res = increaseMemoryQuota(hostname, ctns);
-			if ( res != FUNC_RETURN_OK )
-			{
-				elog(LOG, "Resource manager failed to increase memory quota on "
-						  "host %s.", hostname);
-			}
-		}
-		/* Skip memory quota increase in fault injection mode for RM test */
-		else
-		{
+//		if (rm_resourcepool_test_filename == NULL ||
+//			rm_resourcepool_test_filename[0] == '\0')
+//		{
+//			res = increaseMemoryQuota(hostname, ctns);
+//			if ( res != FUNC_RETURN_OK )
+//			{
+//				elog(LOG, "Resource manager failed to increase memory quota on "
+//						  "host %s.", hostname);
+//			}
+//		}
+//		/* Skip memory quota increase in fault injection mode for RM test */
+//		else
+//		{
 			moveGRMContainerSetToAccepted(ctns);
-		}
+//		}
 	}
 	freePAIRRefList(&(PRESPOOL->ToAcceptContainers), &ctnss);
 	return FUNC_RETURN_OK;
@@ -3418,23 +3594,23 @@ int notifyToBeKickedGRMContainersToRMSEG(void)
 		Assert(firstctn != NULL);
 		char *hostname = firstctn->HostName;
 
-		if (rm_resourcepool_test_filename == NULL ||
-			rm_resourcepool_test_filename[0] == '\0')
-		{
-			res = decreaseMemoryQuota(hostname, ctns);
-
-			if ( res != FUNC_RETURN_OK )
-			{
-				elog(LOG, "Resource manager failed to decrease memory quota on "
-						  "host %s",
-						  hostname);
-			}
-		}
-		/* Skip memory quota increase in fault injection mode for RM test. */
-		else
-		{
+//		if (rm_resourcepool_test_filename == NULL ||
+//			rm_resourcepool_test_filename[0] == '\0')
+//		{
+//			res = decreaseMemoryQuota(hostname, ctns);
+//
+//			if ( res != FUNC_RETURN_OK )
+//			{
+//				elog(LOG, "Resource manager failed to decrease memory quota on "
+//						  "host %s",
+//						  hostname);
+//			}
+//		}
+//		/* Skip memory quota increase in fault injection mode for RM test. */
+//		else
+//		{
 			moveGRMContainerSetToKicked(ctns);
-		}
+//		}
 	}
 
 	freePAIRRefList(&(PRESPOOL->ToKickContainers), &ctnss);
@@ -4015,7 +4191,8 @@ void dropAllToAcceptGRMContainersToKicked(void)
  ******************************************************************************/
 void validateResourcePoolStatus(bool refquemgr)
 {
-
+	if (rm_etcd_enable)
+		return;
 	int32_t  totalallocmem  = 0;
 	double	 totalalloccore = 0.0;
 	int32_t  totalavailmem  = 0;

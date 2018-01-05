@@ -200,6 +200,7 @@ int refreshLocalHostInstance(void)
 			appendSMBVar(&localsegstat, addroffset);
 			appendSMBVar(&localsegstat, addrattr);
 			addroffset += addr->AddressSize;
+            elog(LOG,"addroffset in refresh is %d", addroffset);
 		DQUEUE_LOOP_END
 
 		appendSelfMaintainBufferTill64bitAligned(&localsegstat);

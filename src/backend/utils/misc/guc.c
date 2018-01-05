@@ -4418,6 +4418,16 @@ static struct config_bool ConfigureNamesBool[] =
 		&optimizer_array_constraints,
 		false, NULL, NULL
 	},
+    {
+		{"hawq_rm_etcd_enable", PGC_USERSET, RESOURCES_MGM,
+		 gettext_noop("enable or disable etcd."),
+		 NULL
+		},
+		&rm_etcd_enable,
+		false, NULL, NULL
+	},
+
+
 
 
 	/* End-of-list marker */
@@ -6564,7 +6574,7 @@ static struct config_int ConfigureNamesInt[] =
 			NULL
 		},
 		&rm_segment_heartbeat_interval,
-		30, 1, 65535, NULL, NULL
+		20, 1, 65535, NULL, NULL
 	},
 
 	{
@@ -6694,6 +6704,24 @@ static struct config_int ConfigureNamesInt[] =
 		},
 		&share_input_scan_wait_lockfile_timeout,
 		300000, 1, INT_MAX, NULL, NULL
+	},
+
+	{
+		{"hawq_rm_segment_etcd_ttl", PGC_POSTMASTER, RESOURCES_MGM,
+			gettext_noop("Keys in etcd can be set to expire after a specified number of seconds. "
+                         "You can do this by setting a TTL (time to live) on the key ."),
+			NULL
+		},
+		&rm_segment_etcd_ttl,
+		30, 1, 65535, NULL, NULL
+	},
+
+	{
+		{ "hawq_cluster_size", PGC_POSTMASTER, RESOURCES_MGM,
+			gettext_noop("hawq cluster size which contains the number of available segments"),
+			NULL
+		},
+		&cluster_size, 100, 1, 65535, NULL, NULL
 	},
 
 
@@ -8359,6 +8387,23 @@ static struct config_string ConfigureNamesString[] =
 		&metadata_cache_testfile,
 		NULL, NULL, NULL
 	},
+    {
+		{"hawq_rm_etcd_server_dir", PGC_POSTMASTER, RESOURCES_MGM,
+			gettext_noop("resource manager etcd server directory"),
+			NULL
+		},
+		&rm_etcd_server_dir,
+		"/etcdserver/", NULL, NULL
+	},
+    {
+		{"hawq_rm_etcd_server_ip", PGC_POSTMASTER, RESOURCES_MGM,
+			gettext_noop("resource manager etcd server IP address"),
+			NULL
+		},
+		&rm_etcd_server_ip,
+		"127.0.0.1:2379", NULL, NULL
+	},
+
 
 	/* End-of-list marker */
 	{

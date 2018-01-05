@@ -530,6 +530,95 @@ int ResManagerMainServer2ndPhase(void)
     return res;
 }
 
+
+void cetcd_node_print(cetcd_response_node *node)
+{
+	int i, count;
+	cetcd_response_node *n;
+	if (node) {
+		write_log("Node TTL: %lu\n", node->ttl);
+		write_log("Node ModifiedIndex: %lu\n", node->modified_index);
+		write_log("Node CreatedIndex: %lu\n", node->created_index);
+		write_log("Node Key: %s\n", node->key);
+		write_log("Node Value: %s\n", node->value);
+		if (node->nodes) {
+			count = cetcd_array_size(node->nodes);
+			for (i = 0; i < count; ++i) {
+				n = cetcd_array_get(node->nodes, i);
+				cetcd_node_print(n);
+			}
+		}
+	}
+}
+
+/*
+ * Resource manager master watch etcd server dir to get the changes from segment.
+ */
+int watch(void *userdata, cetcd_response *resp)
+{
+	/* Print etcd server changes. */
+	if (resp->node) {
+		write_log("-------------Node--------------\n");
+		cetcd_node_print(resp->node);
+	}
+	if (resp->prev_node) {
+		write_log("-----------prevNode------------\n");
+		cetcd_node_print(resp->prev_node);
+	}
+
+	/* Lock mutex if there are some changes need to add to the Etcd_queue.*/
+	pthread_mutex_lock(&Etcd_queue_mutex);
+	if (NULL == resp->node->key) {
+		strcpy(Etcd_queue.key[Etcd_queue.size], "");
+	} else {
+		strcpy(Etcd_queue.key[Etcd_queue.size], resp->node->key);
+	}
+
+	if (NULL == resp->node->value) {
+		strcpy(Etcd_queue.value[Etcd_queue.size], "");
+	} else {
+		strcpy(Etcd_queue.value[Etcd_queue.size], resp->node->value);
+	}
+	if (NULL == resp->prev_node)
+		Etcd_queue.addNewHost = true;
+	else
+		Etcd_queue.addNewHost = false;
+	Etcd_queue.size++;
+	pthread_mutex_unlock(&Etcd_queue_mutex);
+
+	return 0;
+}
+
+void handleEtcdWatchResponse() {
+
+	char key[1000][1000];
+	char value[1000][1000];
+	bool newHost = false;
+	int size;
+	size = Etcd_queue.size;
+
+	pthread_mutex_lock(&Etcd_queue_mutex);
+	/* If Etcd_queue_size is zero, unlock the mutex immediatelly.*/
+	if (Etcd_queue.size == 0) {
+		pthread_mutex_unlock(&Etcd_queue_mutex);
+		return;
+	}
+
+	for (int i = 0; i < Etcd_queue.size; i++) {
+		strcpy(key[i], Etcd_queue.key[i]);
+		strcpy(value[i], Etcd_queue.value[i]);
+		newHost = Etcd_queue.addNewHost;
+	}
+	Etcd_queue.size = 0;
+	pthread_mutex_unlock(&Etcd_queue_mutex);
+
+	for (int i = 0; i < size; i++) {
+		elog(LOG, "Key of handleRMSEGRequestIMAliveEtcd is %s, value is %s, newHost is %d", key[i], value[i], newHost);
+		handleRMSEGRequestIMAliveEtcd(key[i], value[i], newHost);
+	}
+}
+
+
 /**
  * The main loop of HAWQ RM process.
  */
@@ -538,6 +627,58 @@ int MainHandlerLoop(void)
 	int res = FUNC_RETURN_OK;
 
 	DRMGlobalInstance->ResourceManagerStartTime = gettime_microsec();
+
+	/*Initialize etcd client and server address.*/
+	/* init pthread_mutex. */
+	pthread_mutexattr_t m_atts;
+	pthread_mutexattr_init(&m_atts);
+	pthread_mutexattr_settype(&m_atts, PTHREAD_MUTEX_ERRORCHECK);
+	pthread_mutex_init(&Etcd_queue_mutex, &m_atts);
+
+	char *addrIP = rm_etcd_server_ip;
+
+	cetcd_client *cli = malloc(sizeof(cetcd_client));
+	cetcd_array *addrs = malloc(sizeof(cetcd_array));
+	cetcd_array *watchers = malloc(sizeof(cetcd_array));
+	cetcd_watch_id wid;
+	cetcd_response *resp;
+	cetcd_response_node *node;
+	int count;
+
+	cetcd_array_init(addrs, 1);
+	cetcd_array_append(addrs, addrIP);
+	cetcd_client_init(cli, addrs);
+	cetcd_array_init(watchers, 1);
+	resp = cetcd_lsdir(cli, rm_etcd_server_dir, 1, 1);
+	if(resp->err)
+	{
+		elog(LOG, " etcd error :%d, %s (%s)\n", resp->err->ecode, resp->err->message, resp->err->cause);
+	}
+	if(resp->node->nodes)
+	{
+		count = cetcd_array_size(resp->node->nodes);
+		for (int i=0; i<count; ++i)
+		{
+			node = cetcd_array_get(resp->node->nodes, i);
+			pthread_mutex_lock(&Etcd_queue_mutex);
+			if (NULL == node->key) {
+			        strcpy(Etcd_queue.key[Etcd_queue.size], "");
+			} else {
+			        strcpy(Etcd_queue.key[Etcd_queue.size], node->key);
+			}
+			
+			if (NULL == node->value) {
+			        strcpy(Etcd_queue.value[Etcd_queue.size], "");
+			} else {
+			        strcpy(Etcd_queue.value[Etcd_queue.size], node->value);
+			}
+			Etcd_queue.addNewHost = true;
+			Etcd_queue.size++;
+			pthread_mutex_unlock(&Etcd_queue_mutex);
+		}
+	}
+	cetcd_add_watcher(watchers,cetcd_watcher_create(cli, rm_etcd_server_dir, 0, 1, 0, watch,NULL));
+	wid = cetcd_multi_watch_async(cli, watchers);
 
 	while( DRMGlobalInstance->ResManagerMainKeepRun )
 	{
@@ -623,20 +764,19 @@ int MainHandlerLoop(void)
 		/* STEP 6. Generate possible resource request to resource broker. */
 		generateResourceRequestToResourceBroker();
 
-        /* STEP 7. Check timeout resource allocation and timeout queuing requests. */
-        timeoutDeadResourceAllocation();
-        timeoutQueuedRequest();
+		/* STEP 7. Check timeout resource allocation and timeout queuing requests. */
+		timeoutDeadResourceAllocation();
+		timeoutQueuedRequest();
 
 		/*
 		 * STEP 8. Check the status of all segment nodes, mark down if hasn't got
 		 * 		   IMAlive message for a pre-defined period.
 		 */
-        uint64_t curtime = gettime_microsec();
-		if ((rm_resourcepool_test_filename == NULL ||
-			rm_resourcepool_test_filename[0] == '\0') &&
-			(curtime - PRESPOOL->LastCheckTime >
-        	 1000000LL * rm_segment_heartbeat_timeout))
-		{
+		uint64_t curtime = gettime_microsec();
+		if ((rm_resourcepool_test_filename == NULL
+				|| rm_resourcepool_test_filename[0] == '\0')
+				&& (curtime - PRESPOOL->LastCheckTime
+						> 1000000LL * rm_segment_heartbeat_timeout)) {
 			updateStatusOfAllNodes();
 			PRESPOOL->LastCheckTime = curtime;
 		}
@@ -670,50 +810,59 @@ int MainHandlerLoop(void)
 
 		/* STEP 11. Dispatch resource to queries and send the messages out.*/
 
-        if ( PRESPOOL->Segments.NodeCount > 0 && PQUEMGR->RatioCount > 0 &&
-			 PQUEMGR->toRunQueryDispatch &&
-			 PQUEMGR->ForcedReturnGRMContainerCount == 0 &&
-			 PRESPOOL->SlavesHostCount > 0 )
-        {
-    		dispatchResourceToQueries();
-        }
-        else if ( PQUEMGR->ForcedReturnGRMContainerCount > 0 )
-        {
-        	forceReturnGRMResourceToRB();
-        }
-        else
-        {
-        	elog(DEBUG3, "Loop dummy. %d, %d, %d, %d",
-        				 PRESPOOL->Segments.NodeCount,
-						 PQUEMGR->RatioCount,
-						 PQUEMGR->toRunQueryDispatch ? 1 : 0,
-						 PQUEMGR->ForcedReturnGRMContainerCount);
-        }
+		if ( PRESPOOL->Segments.NodeCount > 0 && PQUEMGR->RatioCount > 0 &&
+		PQUEMGR->toRunQueryDispatch &&
+		PQUEMGR->ForcedReturnGRMContainerCount == 0 &&
+		PRESPOOL->SlavesHostCount > 0) {
+			dispatchResourceToQueries();
+		} else if ( PQUEMGR->ForcedReturnGRMContainerCount > 0) {
+			forceReturnGRMResourceToRB();
+		} else {
+			elog(DEBUG3, "Loop dummy. %d, %d, %d, %d",
+			PRESPOOL->Segments.NodeCount,
+			PQUEMGR->RatioCount,
+			PQUEMGR->toRunQueryDispatch ? 1 : 0,
+			PQUEMGR->ForcedReturnGRMContainerCount);
+		}
 
-        /* STEP 12. Generate output content to client connections. */
-        sendResponseToClients();
+		/* STEP 12. Generate output content to client connections. */
+		sendResponseToClients();
 
-        /*
-         * STEP 13. Return containers to global resource manager if there some
-         * 			some idle resource.
-         */
-        timeoutIdleGRMResourceToRB();
+		/*
+		 * STEP 13. Return containers to global resource manager if there some
+		 * 			some idle resource.
+		 */
+		timeoutIdleGRMResourceToRB();
 
 		/* STEP 14. Notify segments to increase resource quota. */
 		notifyToBeAcceptedGRMContainersToRMSEG();
 
-        /* STEP 15. Notify segments to decrease resource. */
-        notifyToBeKickedGRMContainersToRMSEG();
+		/* STEP 15. Notify segments to decrease resource. */
+		notifyToBeKickedGRMContainersToRMSEG();
 
-        /*
-         * STEP 16. Check slaves file if the content is not checked or is
-         * 			updated.
-         */
-        checkSlavesFile();
+		/*
+		 * STEP 16. Check slaves file if the content is not checked or is
+		 * 			updated.
+		 */
+		checkSlavesFile();
+
+		/*
+		 * STEP 17. Handle watch() messages.
+		 */
+		if (rm_etcd_enable)
+			handleEtcdWatchResponse();
 	}
 
-	elog(LOG, "Resource manager main event handler exits.");
+	cetcd_multi_watch_async_stop(cli, wid);
+	cetcd_client_destroy(cli);
+	cetcd_array_destroy(addrs);
+	cetcd_array_destroy(watchers);
+	if (&DRMGlobalInstance->etcdInfo.addrs)
+		cetcd_array_destroy(&DRMGlobalInstance->etcdInfo.addrs);
+	if (&DRMGlobalInstance->etcdInfo.cli)
+		cetcd_client_destroy(&DRMGlobalInstance->etcdInfo.cli);
 
+	elog(LOG, "Resource manager main event handler exits.");
 	return res;
 }
 
@@ -861,6 +1010,8 @@ int initializeDRMInstance(MCTYPE context)
 	/* Set resource manager server startup time to 0, i.e. not started yet. */
 	DRMGlobalInstance->ResourceManagerStartTime = 0;
 
+    /* Initialize etcd struct. */
+    DRMGlobalInstance->etcdInfo.initialized = false;
 	return res;
 }
 
@@ -2530,6 +2681,115 @@ void sendResponseToClients(void)
 	}
 }
 
+void addNodesForEtcd(char *addHostName)
+{
+	SegResource node = NULL;
+	uint64_t curtime = 0;
+
+	bool changedstatus = false;
+	curtime = gettime_microsec();
+	for(uint32_t idx = 0; idx < PRESPOOL->SegmentIDCounter; idx++)
+	{
+		node = getSegResource(idx);
+		Assert(node != NULL);
+		uint8_t oldStatus = node->Stat->FTSAvailable;
+		char * hostname = GET_SEGRESOURCE_HOSTNAME(node);
+		if (strcmp(addHostName, hostname) == 0)
+		{
+			if (oldStatus == RESOURCE_SEG_STATUS_UNAVAILABLE)
+			{
+				/*
+				 * This call makes resource manager able to adjust queue and mem/core
+				 * trackers' capacity.
+				 */
+				setSegResHAWQAvailability(node, RESOURCE_SEG_STATUS_AVAILABLE);
+				/*
+				 * This call makes resource pool remove unused containers.
+				 */
+				//returnAllGRMResourceFromSegment(node);
+				changedstatus = true;
+			}
+			AddressString straddr = NULL;
+			getSegInfoHostAddrStr(&(node->Stat->Info), 0, &straddr);
+			Assert(straddr->Address != NULL);
+
+			if (Gp_role != GP_ROLE_UTILITY)
+			{
+				SimpStringPtr description = build_segment_status_description(node->Stat);
+				add_segment_status(idx + REGISTRATION_ORDER_OFFSET, hostname,
+								straddr->Address, node->Stat->Info.port,
+								SEGMENT_ROLE_PRIMARY,
+								IS_SEGSTAT_FTSAVAILABLE(node->Stat) ?
+								SEGMENT_STATUS_UP : SEGMENT_STATUS_DOWN, "");
+				add_segment_history_row(idx + REGISTRATION_ORDER_OFFSET,
+										hostname,
+										"");
+
+				freeSimpleStringContent(description);
+				rm_pfree(PCONTEXT, description);
+			}
+
+			elog(WARNING, "Resource manager sets host %s heartbeat timeout.",
+						  GET_SEGRESOURCE_HOSTNAME(node));
+		}
+	}
+
+	if ( changedstatus )
+	{
+		refreshResourceQueueCapacity(false);
+		refreshActualMinGRMContainerPerSeg();
+	}
+
+	validateResourcePoolStatus(true);
+}
+
+
+void deleteNodesForEtcd(char *deletedHostName)
+{
+	SegResource node = NULL;
+
+	bool changedstatus = false;
+	for(uint32_t idx = 0; idx < PRESPOOL->SegmentIDCounter; idx++)
+	{
+		node = getSegResource(idx);
+		Assert(node != NULL);
+		uint8_t oldStatus = node->Stat->FTSAvailable;
+		char * hostname = GET_SEGRESOURCE_HOSTNAME(node);
+		if (strcmp(deletedHostName, hostname) == 0) {
+			if (oldStatus == RESOURCE_SEG_STATUS_AVAILABLE) {
+				/*
+				 * This call makes resource manager able to adjust queue and mem/core
+				 * trackers' capacity.
+				 */
+				setSegResHAWQAvailability(node, RESOURCE_SEG_STATUS_UNAVAILABLE);
+				/*
+				 * This call makes resource pool remove unused containers.
+				 */
+				returnAllGRMResourceFromSegment(node);
+				changedstatus = true;
+			}
+
+			node->Stat->StatusDesc |= SEG_STATUS_HEARTBEAT_TIMEOUT;
+			if (Gp_role != GP_ROLE_UTILITY) {
+				SimpStringPtr description = build_segment_status_description(node->Stat);
+				delete_segment_status(idx + REGISTRATION_ORDER_OFFSET);
+				freeSimpleStringContent(description);
+				rm_pfree(PCONTEXT, description);
+			}
+		}
+
+		elog(WARNING, "Resource manager sets host %s heartbeat timeout.",
+					  GET_SEGRESOURCE_HOSTNAME(node));
+	}
+
+	if ( changedstatus )
+	{
+		refreshResourceQueueCapacity(false);
+		refreshActualMinGRMContainerPerSeg();
+	}
+
+	validateResourcePoolStatus(true);
+}
 /*
  * Check and set the nodes down that are not updated by IMAlive heart-beat for a
  * long time.
@@ -2548,8 +2808,9 @@ void updateStatusOfAllNodes()
 		uint8_t oldStatus = node->Stat->FTSAvailable;
 		if ( (curtime - node->LastUpdateTime >
 			 1000000LL * rm_segment_heartbeat_timeout) &&
-			 (node->Stat->StatusDesc & SEG_STATUS_HEARTBEAT_TIMEOUT) == 0)
+			 (node->Stat->StatusDesc & SEG_STATUS_HEARTBEAT_TIMEOUT) == 0 && rm_etcd_enable == false)
 		{
+			elog(WARNING, "comment timeout logic for now");
 			/*
 			 * This segment is heartbeat timeout, update its description
 			 * and set it to unavailable if needed.

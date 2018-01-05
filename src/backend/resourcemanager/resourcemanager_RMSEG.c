@@ -202,7 +202,10 @@ int MainHandlerLoop_RMSEG(void)
 			     curtime - DRMGlobalInstance->HeartBeatLastSentTime >
 				 1000000LL * rm_segment_heartbeat_interval )
 			 {
-				 sendIMAlive(&errorcode, errorbuf, sizeof(errorbuf));
+				 if (rm_etcd_enable)
+					 sendIMAliveToEtcd();
+				 else
+					 sendIMAlive(&errorcode, errorbuf, sizeof(errorbuf));
 				 DRMGlobalInstance->HeartBeatLastSentTime = gettime_microsec();
 			 }
 		}
