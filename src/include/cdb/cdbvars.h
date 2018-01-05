@@ -1179,6 +1179,7 @@ extern int	   rm_min_resource_perseg;
 
 extern int     rm_session_lease_timeout;
 extern bool    rm_session_lease_heartbeat_enable;
+extern bool    rm_etcd_enable;
 
 extern int 	   rm_resource_allocation_timeout;
 extern int	   rm_resource_timeout;
@@ -1188,6 +1189,8 @@ extern int	   rm_session_lease_heartbeat_interval;
 extern int	   rm_segment_heartbeat_interval;
 extern int	   rm_segment_config_refresh_interval;
 extern int	   rm_segment_tmpdir_detect_interval;
+extern int	   rm_segment_etcd_ttl;
+extern int     cluster_size;
 
 extern int	   rm_nocluster_timeout;
 extern double  rm_tolerate_nseg_limit;
@@ -1213,6 +1216,8 @@ extern int     rm_allocation_policy;
 
 extern char   *rm_master_tmp_dirs;
 extern char   *rm_seg_tmp_dirs;
+extern char   *rm_etcd_server_dir;
+extern char   *rm_etcd_server_ip;
 
 extern int     rm_log_level;
 extern int     rm_nresqueue_limit;

@@ -173,6 +173,20 @@ typedef struct QETmpDirEntry
     char        tmpdir[TMPDIR_MAX_LENGTH];
 } QETmpDirEntry;
 
+
+typedef struct EtcdWatchResponseQueue
+{
+    //char            key[ETCD_MAX_KEY_NUM][ETCD_MAX_KEY_LENGTH];
+    //char            value[ETCD_MAX_KEY_NUM][ETCD_MAX_KEY_LENGTH];
+    char            key[1000][1000];
+    char            value[1000][1000];
+    int             size;
+    bool            addNewHost;
+}EtcdWatchResponseQueue;
+
+EtcdWatchResponseQueue Etcd_queue;
+pthread_mutex_t   Etcd_queue_mutex;
+
 struct DynRMGlobalData{
 
 	MCTYPE            		 Context;			   /* Meaningful only in HAWQ
@@ -234,6 +248,11 @@ struct DynRMGlobalData{
     /* MARKER FOR RESOURCE BREATH                                             */
     /*------------------------------------------------------------------------*/
     int						ForcedReturnGRMContainerCount;
+
+    /*------------------------------------------------------------------------*/
+    /* Send heartbeat to  etcd service                                               */
+    /*------------------------------------------------------------------------*/
+    EtcdInfo                etcdInfo;
 };
 
 extern DynRMGlobal DRMGlobalInstance;

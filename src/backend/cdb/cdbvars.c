@@ -329,6 +329,7 @@ bool	rm_force_fifo_queue;
 bool	rm_force_alterqueue_cancel_queued_request;
 
 bool	rm_session_lease_heartbeat_enable;
+bool	rm_etcd_enable;
 int     rm_session_lease_timeout; 			/* How many seconds to wait before
 											   expiring allocated resource. */
 int		rm_resource_allocation_timeout;		/* How may seconds to wait before
@@ -361,6 +362,8 @@ int		rm_segment_config_refresh_interval; /* How many seconds to wait before
 int		rm_segment_tmpdir_detect_interval;	/* How many seconds to wait before
 											   another detecting local temporary
 											   directories. */
+int     rm_segment_etcd_ttl;                /* How many seconds to expire on the key */
+int     cluster_size;                       /* How many available segments */
 
 int		rm_nvseg_variance_among_seg_limit;
 int		rm_container_batch_limit;
@@ -381,6 +384,8 @@ int	rm_allocation_policy;
 
 char   *rm_master_tmp_dirs;
 char   *rm_seg_tmp_dirs;
+char   *rm_etcd_server_dir;
+char   *rm_etcd_server_ip;
 
 int     rm_log_level;
 int     rm_nresqueue_limit;

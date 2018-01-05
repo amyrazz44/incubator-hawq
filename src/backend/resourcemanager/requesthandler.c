@@ -28,9 +28,11 @@
 #include "communication/rmcomm_QD_RM_Protocol.h"
 #include "communication/rmcomm_RMSEG_RM_Protocol.h"
 #include "communication/rmcomm_RM2RMSEG.h"
+#include "communication/rmcomm_RMSEG2RM.h"
 #include "resourceenforcer/resourceenforcer.h"
 
 #include "resourcemanager.h"
+#include <json-c/json.h>
 
 /*
  * The MAIN ENTRY of request handler.
@@ -39,6 +41,7 @@
  * 		requesthandler_ddl.c	: handlers for QD-RM DDL manipulations
  * 		requesthandler_RMSEG.c	: handlers for QE-RMSEG, RM-RMSEG RPC
  */
+#define RMSEG_INBUILDHOST SMBUFF_HEAD(SegStat, &localsegstat)
 
 #define RETRIEVE_CONNTRACK(res, connid, conntrack)                      	   \
 	if ( (*conntrack)->ConnID == INVALID_CONNID ) {                            \
@@ -53,6 +56,26 @@
 					 (*conntrack)->Progress);                                  \
 	}
 
+#define JSON_PARSE_INT(body, param, item, result)                              \
+		json_object_object_get_ex((body), (param), &(item));                   \
+		if (NULL == (item))                                                    \
+			goto failed;                                                       \
+		(result) = json_object_get_int(item);                                  \
+		elog(LOG, "%s is %d", param, result);                                  \
+
+#define JSON_PARSE_STR(body, param, item, result)                              \
+		json_object_object_get_ex((body), (param), &(item));                   \
+		if (NULL == (item))                                                    \
+			goto failed;                                                       \
+		(result) = json_object_get_string(item);                               \
+		elog(LOG, "%s is %s", param, result);                                  \
+
+#define JSON_PARSE_BOOL(body, param, item, result)                             \
+		json_object_object_get_ex((body), (param), &(item));                   \
+		if (NULL == (item))                                                    \
+			goto failed;                                                       \
+		(result) = json_object_get_boolean(item);                              \
+		elog(LOG, "%s is %s", param, result);                                  \
 /*
  * Handle the request of REGISTER CONNECTION.
  */
@@ -598,6 +621,377 @@ sendresponse:
 }
 
 /*
+ * Parse json object from etcd server which is segment send seginfo to.
+ */
+SegStat handleEtcdJsonParse(char *key, char *value, char *fts_client_ip, int fts_client_ip_len)
+{
+	SelfMaintainBufferData localsegstat;
+	initializeSelfMaintainBuffer(&localsegstat, PCONTEXT);
+	prepareSelfMaintainBuffer(&localsegstat, sizeof(SegStatData), true);
+	json_object *jobj, *header, *body, *info, *item;
+	jobj = json_tokener_parse(value);
+	/* Parse each object from json string. */
+	if (is_error(jobj))
+		goto failed;
+	header = json_object_object_get(jobj, "requesthead");
+	if (NULL == header)
+		goto failed;
+	body = json_object_object_get(jobj, "segStatData");
+	if (NULL == body)
+		goto failed;
+	info = json_object_object_get(body, "SegInfo");
+	if (NULL == info)
+		goto failed;
+	/* Parse each item from json string. */
+	JSON_PARSE_INT(header, SEGSTAT_TMPDIRBROKENCOUNT, item, RMSEG_INBUILDHOST->FailedTmpDirNum)
+	JSON_PARSE_INT(body, SEGSTAT_FTSAVAILABLE, item, RMSEG_INBUILDHOST->FTSAvailable)
+	JSON_PARSE_BOOL(body, SEGSTAT_GRMHANDLED, item, RMSEG_INBUILDHOST->GRMHandled)
+	JSON_PARSE_INT(body, SEGSTAT_FTSTOTALMEM, item, RMSEG_INBUILDHOST->FTSTotalMemoryMB)
+	JSON_PARSE_INT(body, SEGSTAT_FTSTOTALCORE, item, RMSEG_INBUILDHOST->FTSTotalCore)
+	JSON_PARSE_INT(body, SEGSTAT_GRMTOTALMEM, item, RMSEG_INBUILDHOST->GRMTotalMemoryMB)
+	JSON_PARSE_INT(body, SEGSTAT_GRMTOTALCORE, item, RMSEG_INBUILDHOST->GRMTotalCore)
+	JSON_PARSE_INT(body, SEGSTAT_STATUSDESC, item, RMSEG_INBUILDHOST->StatusDesc)
+	JSON_PARSE_INT(header, SEGSTAT_RMSTARTTIMESTAMP, item, RMSEG_INBUILDHOST->RMStartTimestamp)
+	JSON_PARSE_INT(info, SEGSTAT_PORT, item, RMSEG_INBUILDHOST->Info.port)
+	JSON_PARSE_INT(info, SEGSTAT_ID, item, RMSEG_INBUILDHOST->Info.ID)
+	JSON_PARSE_INT(info, SEGSTAT_MASTER, item, RMSEG_INBUILDHOST->Info.master)
+	JSON_PARSE_INT(info, SEGSTAT_STANDBY, item, RMSEG_INBUILDHOST->Info.standby)
+	JSON_PARSE_INT(info, SEGSTAT_ALIVE, item, RMSEG_INBUILDHOST->Info.alive)
+
+	jumpforwardSelfMaintainBuffer(&localsegstat, sizeof(SegStatData));
+
+	/* Deal with ip address. */
+	JSON_PARSE_INT(info, SEGSTAT_HOSTADDRCOUNT, item, RMSEG_INBUILDHOST->Info.HostAddrCount)
+
+	/* Compute address offset */
+	uint16_t addroffset = sizeof(SegInfoData) + sizeof(uint32_t)
+					* (((RMSEG_INBUILDHOST->Info.HostAddrCount + 1) >> 1) << 1);
+	uint16_t addrattr = 0;
+	addrattr |= HOST_ADDRESS_CONTENT_STRING;
+
+	RMSEG_INBUILDHOST->Info.AddressAttributeOffset = sizeof(SegInfoData);
+	RMSEG_INBUILDHOST->Info.AddressContentOffset = addroffset;
+
+	json_object_object_get_ex(info, SEGSTAT_ADDRARRAY, &item);
+	if (NULL == item)
+		goto failed;
+	for (int i = 0; i < json_object_array_length(item); i++) {
+		char *addr = json_object_get_string(json_object_array_get_idx(item, i));
+		HostAddress newaddr = NULL;
+		newaddr = createHostAddressAsStringFromIPV4AddressStr(PCONTEXT, addr);
+		appendSMBVar(&localsegstat, addroffset);
+		appendSMBVar(&localsegstat, addrattr);
+		addroffset += newaddr->AddressSize;
+	}
+	appendSelfMaintainBufferTill64bitAligned(&localsegstat);
+
+	/* Add address content*/
+	/* If there are more than one ip address and the first ip is 127.0.0.1, then set needToExchangeIP to true,
+	 *  put the second ip to the first place. If there is only one ip address, no need to change.*/
+	bool needToExchangeIP = false;
+	for (int i = 0; i < json_object_array_length(item); i++) {
+		char * addr = json_object_get_string(json_object_array_get_idx(item, i));
+		HostAddress newaddr = NULL;
+		newaddr = createHostAddressAsStringFromIPV4AddressStr(PCONTEXT, addr);
+		if (i == 0 && strcmp(addr, "127.0.0.1") == 0 && json_object_array_length(item) != 1) {
+			needToExchangeIP = false; // Just for mac.
+			//needToExchangeIP = true;
+		}
+		if (i == 1 && needToExchangeIP == true) {
+			elog(LOG, "needToExchange is true && i==1");
+			strncpy(fts_client_ip, addr, fts_client_ip_len);
+		}
+		appendSelfMaintainBuffer(&localsegstat, newaddr->Address, newaddr->AddressSize);
+		elog(LOG, "addr of addressArray is %s, newaddr which is convert to HostAddress is %s, newaddr size is %d", addr, newaddr->Address, newaddr->AddressSize);
+	}
+
+	/* Check if the ip address is convert correct */
+	for (int i = 0; i < RMSEG_INBUILDHOST->Info.HostAddrCount; i++) {
+		uint16_t __MAYBE_UNUSED attr = GET_SEGINFO_ADDR_ATTR_AT(
+				&RMSEG_INBUILDHOST->Info, i);
+		Assert(IS_SEGINFO_ADDR_STR(attr));
+		AddressString straddr = NULL;
+		getSegInfoHostAddrStr(&RMSEG_INBUILDHOST->Info, i, &straddr);
+		elog(LOG, "Check ip address convert exactly : i is %d, attr is %d ,adrres is %s",i , attr, straddr->Address);
+	}
+
+	/* Deal with host name */
+	/* Get the hostname values before doing the json parse. */
+	int HostNameOffset = 0;
+	int HostNameLen = 0;
+	char * hostname = NULL;
+	JSON_PARSE_INT(info, SEGSTAT_HOSTNAMEOFFSET, item, HostNameOffset)
+	JSON_PARSE_INT(info, SEGSTAT_HOSTNAMELEN, item, HostNameLen)
+	JSON_PARSE_STR(info, SEGSTAT_HOSTNAME, item, hostname)
+
+	/* Get the hostname values by computing .*/
+	RMSEG_INBUILDHOST->Info.HostNameOffset = localsegstat.Cursor + 1 - offsetof(SegStatData, Info);
+	appendSelfMaintainBuffer(&localsegstat, hostname, strlen(hostname)+1);
+	char * hostName = ((char *)(&RMSEG_INBUILDHOST->Info) + (RMSEG_INBUILDHOST->Info.HostNameOffset));
+
+	appendSelfMaintainBufferTill64bitAligned(&localsegstat);
+	RMSEG_INBUILDHOST->Info.HostNameLen = strlen(hostName);
+
+	elog(LOG, "HostNameOffset before json parse is %d, after parse is %d", HostNameOffset, RMSEG_INBUILDHOST->Info.HostNameOffset);
+	elog(LOG, "hostname before parse is %s, hostname after parse is %s", hostname, hostName);
+	elog(LOG, "HostName len before parse is %d, after parse is %d",HostNameLen, RMSEG_INBUILDHOST->Info.HostNameLen);
+
+	/*Deal with GRM host/rack. */
+	JSON_PARSE_INT(info, SEGSTAT_GRMHOSTNAMEOFFSET, item, RMSEG_INBUILDHOST->Info.GRMHostNameOffset)
+	JSON_PARSE_INT(info, SEGSTAT_GRMHOSTNAMELEN, item, RMSEG_INBUILDHOST->Info.GRMHostNameLen)
+	JSON_PARSE_INT(info, SEGSTAT_GRMRACKNAMEOFFSET, item, RMSEG_INBUILDHOST->Info.GRMRackNameOffset)
+	JSON_PARSE_INT(info, SEGSTAT_GRMRACKNAMELEN, item, RMSEG_INBUILDHOST->Info.GRMRackNameLen)
+
+	if (RMSEG_INBUILDHOST->FailedTmpDirNum == 0) {
+		RMSEG_INBUILDHOST->Info.FailedTmpDirOffset = 0;
+		RMSEG_INBUILDHOST->Info.FailedTmpDirLen = 0;
+	} else {
+		JSON_PARSE_INT(info, SEGSTAT_FAILEDTMPDIROFFSET, item, RMSEG_INBUILDHOST->Info.FailedTmpDirOffset)
+		JSON_PARSE_INT(info, SEGSTAT_FAILEDTMPDIRLEN, item, RMSEG_INBUILDHOST->Info.FailedTmpDirLen)
+		char * failedTmpDir = NULL;
+		JSON_PARSE_STR(info, SEGSTAT_FAILEDTMPDIR, item, failedTmpDir)
+		int FailedTmpDirOffset = localsegstat.Cursor + 1 - offsetof(SegStatData, Info);
+		elog(LOG, "FailedTmpDirOffset is %d, %d", RMSEG_INBUILDHOST->Info.FailedTmpDirOffset, FailedTmpDirOffset);
+		appendSelfMaintainBuffer(&localsegstat, failedTmpDir, strlen(failedTmpDir)+1);
+		appendSelfMaintainBufferTill64bitAligned(&localsegstat);
+	}
+
+	/* Get total size and check. */
+	int Size = 0;
+	JSON_PARSE_INT(info, SEGSTAT_SIZE, item, Size)
+	RMSEG_INBUILDHOST->Info.Size = localsegstat.Cursor + 1 - offsetof(SegStatData, Info);
+	elog(LOG, "localsegstat Info.Size is : %d, %d, %d, %d", RMSEG_INBUILDHOST->Info.Size, Size, localsegstat.Size, localsegstat.Cursor);
+
+	SegStat segstat = NULL;
+	segstat = palloc0(localsegstat.Cursor + 1);
+	memcpy(segstat, localsegstat.Buffer, localsegstat.Cursor + 1);
+	SelfMaintainBufferData machinereport;
+	initializeSelfMaintainBuffer(&machinereport, PCONTEXT);
+	generateSegStatReport(segstat, &machinereport);
+	elog(LOG, "machinereport is %s",machinereport.Buffer);
+	destroySelfMaintainBuffer(&machinereport);
+	destroySelfMaintainBuffer(&localsegstat);
+
+	return segstat;
+
+failed:
+	elog(WARNING, "Wrong json parser");
+	return NULL;
+}
+
+/*
+ * Add a new IP and a new host name to SegStat.
+ */
+SegStat addNewIPToSegStat(SegStat segstat, char* fts_client_ip, uint32_t fts_client_ip_len, struct hostent* fts_client_host)
+{
+	SelfMaintainBufferData newseginfo;
+	initializeSelfMaintainBuffer(&newseginfo, PCONTEXT);
+	prepareSelfMaintainBuffer(&newseginfo, sizeof(SegInfoData), false);
+	memcpy(SMBUFF_CONTENT(&(newseginfo)), &segstat->Info, sizeof(SegInfoData));
+	jumpforwardSelfMaintainBuffer(&newseginfo, sizeof(SegInfoData));
+
+	uint16_t addroffset = sizeof(SegInfoData)
+			+ sizeof(uint32_t)
+					* (((segstat->Info.HostAddrCount + 1 + 1) >> 1) << 1);
+	uint16_t addrattr = HOST_ADDRESS_CONTENT_STRING;
+
+	SegInfo newseginfoptr = SMBUFF_HEAD(SegInfo, &newseginfo);
+	newseginfoptr->AddressAttributeOffset = sizeof(SegInfoData);
+	newseginfoptr->AddressContentOffset = addroffset;
+	newseginfoptr->HostAddrCount = segstat->Info.HostAddrCount + 1;
+
+	uint32_t addContentOffset = addroffset;
+
+	appendSMBVar(&newseginfo, addroffset);
+	appendSMBVar(&newseginfo, addrattr);
+
+	elog(LOG, "resource manager received IMAlive message, this segment's IP "
+	"address count: %d",segstat->Info.HostAddrCount);
+
+	/* iterate all the offset/attribute in machineIdData from client */
+	for (int i = 0; i < segstat->Info.HostAddrCount; i++) {
+		/*
+		 * Adjust address offset by counting the size of one AddressString.
+		 * Adding new address attribute and offset content can also causing more
+		 * space enlarged. We have to count it.
+		 */
+		addroffset = *(uint16_t *) ((char *) &segstat->Info
+				+ segstat->Info.AddressAttributeOffset + i * sizeof(uint32_t));
+		addroffset += __SIZE_ALIGN64(sizeof(uint32_t) + fts_client_ip_len + 1)
+				+ (addContentOffset - segstat->Info.AddressContentOffset);
+
+		appendSMBVar(&newseginfo, addroffset);
+
+		addrattr = *(uint16_t *) ((char *) &segstat->Info
+				+ segstat->Info.AddressAttributeOffset + i * sizeof(uint32_t)
+				+ sizeof(uint16_t));
+		/* No need to adjust the value. */
+		appendSMBVar(&newseginfo, addrattr);
+	}
+	/* We may have to add '\0' pads to make the block of address offset and
+	* attribute 64-bit aligned. */
+	appendSelfMaintainBufferTill64bitAligned(&newseginfo);
+	/* Put the connection's client ip into the first position */
+	appendSMBVar(&newseginfo, fts_client_ip_len);
+	appendSMBStr(&newseginfo, fts_client_ip);
+	appendSelfMaintainBufferTill64bitAligned(&newseginfo);
+
+	elog(LOG, "resource manager received IMAlive message, "
+	"this segment's IP address: %s\n",fts_client_ip);
+
+	appendSelfMaintainBuffer(&newseginfo,
+			(char *) &segstat->Info + segstat->Info.AddressContentOffset,
+			segstat->Info.HostNameOffset - segstat->Info.AddressContentOffset);
+
+	newseginfoptr = SMBUFF_HEAD(SegInfo, &(newseginfo));
+	newseginfoptr->HostNameOffset = getSMBContentSize(&newseginfo);
+	appendSMBStr(&newseginfo, fts_client_host->h_name);
+	appendSelfMaintainBufferTill64bitAligned(&newseginfo);
+
+	newseginfoptr = SMBUFF_HEAD(SegInfo, &(newseginfo));
+	newseginfoptr->HostNameLen = strlen(fts_client_host->h_name);
+	appendSelfMaintainBufferTill64bitAligned(&newseginfo);
+
+	/* fill in failed temporary directory string */
+	if (segstat->Info.FailedTmpDirLen != 0) {
+		newseginfoptr->FailedTmpDirOffset = getSMBContentSize(&newseginfo);
+		newseginfoptr->FailedTmpDirLen = strlen(
+				GET_SEGINFO_FAILEDTMPDIR(&segstat->Info));
+		appendSMBStr(&newseginfo, GET_SEGINFO_FAILEDTMPDIR(&segstat->Info));
+		elog(RMLOG, "resource manager received IMAlive message, "
+		"failed temporary directory:%s",
+		GET_SEGINFO_FAILEDTMPDIR(&segstat->Info));
+		appendSelfMaintainBufferTill64bitAligned(&newseginfo);
+	} else {
+		newseginfoptr->FailedTmpDirOffset = 0;
+		newseginfoptr->FailedTmpDirLen = 0;
+	}
+
+	newseginfoptr->Size = getSMBContentSize(&newseginfo);
+	newseginfoptr->GRMHostNameLen = 0;
+	newseginfoptr->GRMHostNameOffset = 0;
+	newseginfoptr->GRMRackNameLen = 0;
+	newseginfoptr->GRMRackNameOffset = 0;
+
+	elog(RMLOG, "resource manager received IMAlive message, "
+	"this segment's hostname: %s\n", fts_client_host->h_name);
+
+	SegStat newsegstat = (SegStat) rm_palloc0(PCONTEXT,
+			offsetof(SegStatData, Info) + getSMBContentSize(&newseginfo));
+	memcpy((char *) newsegstat, segstat, offsetof(SegStatData, Info));
+	memcpy((char *) newsegstat + offsetof(SegStatData, Info),
+			SMBUFF_CONTENT(&newseginfo), getSMBContentSize(&newseginfo));
+
+	destroySelfMaintainBuffer(&newseginfo);
+
+	newsegstat->Info.ID = SEGSTAT_ID_INVALID;
+	newsegstat->StatusDesc = 0;
+
+	return newsegstat;
+}
+
+/*
+ * Handle Etcd I AM ALIVE request.
+ */
+bool handleRMSEGRequestIMAliveEtcd(char *key, char *value, bool isNewHost)
+{
+	/*Segment to delete from etcd server.*/
+	char deletedHostName[100];
+	int dirlen = strlen(rm_etcd_server_dir);
+	int keylen = strlen(key);
+	if (strcmp(value, "") == 0) {
+		strncpy(deletedHostName, key + dirlen, keylen);
+		elog(LOG, "deletedHostName is %s", deletedHostName);
+		deleteNodesForEtcd(deletedHostName);
+		return false;
+	}
+
+	/* Exchange ip address if the first ip is 127.0.0.1 */
+	char fts_client_ip[100];
+	struct hostent* fts_client_host = NULL;
+	uint32_t fts_client_ip_len = 0;
+	struct in_addr fts_client_addr;
+	SegStat segstat = NULL;
+	/* Parse json string from etcd server to segstat. */
+	segstat = handleEtcdJsonParse(key, value, fts_client_ip, 100);
+	if(strlen(fts_client_ip) != 0)
+	{
+		fts_client_ip_len = strlen(fts_client_ip);
+		inet_aton(fts_client_ip, &fts_client_addr);
+		fts_client_host = gethostbyaddr(&fts_client_addr, 4, AF_INET);
+		elog(LOG, "fts_client_ip is %s, fts_client_host is %s, fts_client_ip_len is %d", fts_client_ip, fts_client_host, fts_client_ip_len);
+		if (fts_client_host == NULL) {
+			elog(WARNING, "failed to reverse DNS lookup for ip %s.", fts_client_ip);
+			return false;
+		}
+	}
+	if (segstat == NULL)
+    {
+        elog(LOG, "Fail to parse segstat, the segstat is NULL");
+		return false;
+    }
+
+	/* Need to add fts_client_ip to the first place of the ip address array. */
+	bool capstatchanged = false;
+	if (NULL != fts_client_host)
+	{
+		SegStat newsegstat = NULL;
+		newsegstat = addNewIPToSegStat(segstat, fts_client_ip, fts_client_ip_len, fts_client_host);
+
+		if (PRESPOOL->AvailNodeCount < cluster_size) {
+			if (addHAWQSegWithSegStat(newsegstat, &capstatchanged) != FUNC_RETURN_OK) {
+				rm_pfree(PCONTEXT, newsegstat);
+			}
+			if (isNewHost) {
+				char addHostName[100];
+				strncpy(addHostName, key + dirlen, keylen);
+				addNodesForEtcd(addHostName);
+				return true;
+			}
+		}
+		if (capstatchanged) {
+			/* Refresh resource queue capacities. */
+			refreshResourceQueueCapacity(false);
+			refreshActualMinGRMContainerPerSeg();
+			/* Recalculate all memory/core ratio instances' limits. */
+			refreshMemoryCoreRatioLimits();
+			/* Refresh memory/core ratio level water mark. */
+			refreshMemoryCoreRatioWaterMark();
+		}
+    }
+    else
+	{
+		segstat->Info.ID = SEGSTAT_ID_INVALID;
+		segstat->StatusDesc = 0;
+
+		if (PRESPOOL->AvailNodeCount < cluster_size) {
+			if (addHAWQSegWithSegStat(segstat, &capstatchanged)
+					!= FUNC_RETURN_OK) {
+				rm_pfree(PCONTEXT, segstat);
+			}
+			if (isNewHost) {
+				char addHostName[100];
+				strncpy(addHostName, key + dirlen, keylen);
+				addNodesForEtcd(addHostName);
+				return true;
+			}
+		}
+		if (capstatchanged) {
+			/* Refresh resource queue capacities. */
+			refreshResourceQueueCapacity(false);
+			refreshActualMinGRMContainerPerSeg();
+			/* Recalculate all memory/core ratio instances' limits. */
+			refreshMemoryCoreRatioLimits();
+			/* Refresh memory/core ratio level water mark. */
+			refreshMemoryCoreRatioWaterMark();
+		}
+		
+	}
+
+	return true;
+}
+
+/*
  * Handle I AM ALIVE request.
  */
 bool handleRMSEGRequestIMAlive(void **arg)
@@ -692,7 +1086,7 @@ bool handleRMSEGRequestIMAlive(void **arg)
 								 fts_client_seginfo->AddressAttributeOffset +
 								 i*sizeof(uint32_t) +
 								 sizeof(uint16_t));
-		/* No need to adjust the value. */
+		/* No need to adjust the item. */
 		appendSMBVar(&newseginfo,addrattr);
 	}
 
@@ -793,7 +1187,7 @@ bool handleRMSEGRequestIMAlive(void **arg)
 		/* Refresh memory/core ratio level water mark. */
 		refreshMemoryCoreRatioWaterMark();
 	}
-
+        
 	/* Send the response. */
 	RPCResponseIMAliveData response;
 	response.Result   = FUNC_RETURN_OK;
@@ -1278,9 +1672,9 @@ bool handleRMRequestQuotaControl(void **arg)
 	RPCRequestQuotaControl request =
 		SMBUFF_HEAD(RPCRequestQuotaControl, &(conntrack->MessageBuff));
 	Assert(request->Phase >= 0 && request->Phase < QUOTA_PHASE_COUNT);
-	bool oldvalue = PRESPOOL->pausePhase[request->Phase];
+	bool olditem = PRESPOOL->pausePhase[request->Phase];
 	PRESPOOL->pausePhase[request->Phase] = request->Pause;
-	if ( oldvalue != PRESPOOL->pausePhase[request->Phase] )
+	if ( olditem != PRESPOOL->pausePhase[request->Phase] )
 	{
 		elog(LOG, "resource manager resource quota life cycle pause setting %d "
 				  "changes to %s",

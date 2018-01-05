@@ -26,6 +26,7 @@
 #include "utils/linkedlist.h"
 #include "utils/simplestring.h"
 #include "utils/network_utils.h"
+#include "cetcd.h"
 
 /*
  * The resource pool maintains a set of segments(hosts) which contain allocated
@@ -157,6 +158,24 @@ struct SegStatData {
 
 typedef struct SegStatData *SegStat;
 typedef struct SegStatData  SegStatData;
+
+/*
+ *------------------------------------------------------------------------------
+ * EtcdInfo
+ *------------------------------------------------------------------------------
+ */
+
+typedef struct EtcdEntry
+{
+    char            *etcd_string;
+    char            *etcd_string_old;
+    bool            initialized;
+    cetcd_client    cli;
+    cetcd_array     addrs;
+    cetcd_array     watchers;
+    cetcd_watch_id  wid;
+} EtcdInfo;
+
 
 #define SEGSTAT_ID_INVALID -1
 
