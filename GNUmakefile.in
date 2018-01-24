@@ -11,7 +11,6 @@ include $(top_builddir)/src/Makefile.global
 all:
 #	$(MAKE) -C doc $@
 	$(MAKE) -C depends/thirdparty/googletest $@
-	$(MAKE) -C depends/thirdparty/cetcd $@
 	$(MAKE) -C depends/libhdfs3 $@
 	$(MAKE) -C depends/libyarn $@
 	$(MAKE) -C src $@
@@ -24,7 +23,6 @@ all:
 install:
 #	$(MAKE) -C doc $@
 	$(MAKE) -C depends/thirdparty/googletest $@ 
-	$(MAKE) -C depends/thirdparty/cetcd $@ 
 	$(MAKE) -C depends/libhdfs3 $@
 	$(MAKE) -C depends/libyarn $@
 	$(MAKE) -C src $@
@@ -66,7 +64,6 @@ clean:
 #	$(MAKE) -C doc $@
 	$(MAKE) -C contrib $@
 	-$(MAKE) -C depends/thirdparty/googletest $@ 
-	-$(MAKE) -C depends/thirdparty/cetcd $@ 
 	-$(MAKE) -C depends/libhdfs3 $@
 	-$(MAKE) -C depends/libyarn $@
 	$(MAKE) -C src $@
@@ -86,7 +83,6 @@ distclean maintainer-clean:
 #	-$(MAKE) -C doc $@
 	-$(MAKE) -C contrib $@
 	-$(MAKE) -C depends/thirdparty/googletest $@ 
-	-$(MAKE) -C depends/thirdparty/cetcd $@ 
 	-$(MAKE) -C depends/libhdfs3 $@
 	-$(MAKE) -C depends/libyarn $@
 	-$(MAKE) -C config $@
