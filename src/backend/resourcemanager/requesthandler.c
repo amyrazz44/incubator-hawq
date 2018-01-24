@@ -694,8 +694,8 @@ SegStat handleEtcdJsonParse(char *key, char *value, char *fts_client_ip, int fts
 		HostAddress newaddr = NULL;
 		newaddr = createHostAddressAsStringFromIPV4AddressStr(PCONTEXT, addr);
 		if (i == 0 && strcmp(addr, "127.0.0.1") == 0 && json_object_array_length(item) != 1) {
-			//needToExchangeIP = false; // Just for mac.
-			needToExchangeIP = true;
+			needToExchangeIP = false; // Just for mac.
+			//needToExchangeIP = true;
 		}
 		if (i == 1 && needToExchangeIP == true) {
 			elog(LOG, "needToExchange is true && i==1");
@@ -782,7 +782,7 @@ failed:
 /*
  * Add a new IP and a new host name to SegStat.
  */
-SegStat addNewIPToSegStat(SegStat segstat, char* fts_client_ip, uint32_t fts_client_ip_len, char* fts_client_host)
+SegStat addNewIPToSegStat(SegStat segstat, char* fts_client_ip, uint32_t fts_client_ip_len, struct hostent* fts_client_host)
 {
 	SelfMaintainBufferData newseginfo;
 	initializeSelfMaintainBuffer(&newseginfo, PCONTEXT);
@@ -845,11 +845,11 @@ SegStat addNewIPToSegStat(SegStat segstat, char* fts_client_ip, uint32_t fts_cli
 
 	newseginfoptr = SMBUFF_HEAD(SegInfo, &(newseginfo));
 	newseginfoptr->HostNameOffset = getSMBContentSize(&newseginfo);
-	appendSMBStr(&newseginfo, fts_client_host);
+	appendSMBStr(&newseginfo, fts_client_host->h_name);
 	appendSelfMaintainBufferTill64bitAligned(&newseginfo);
 
 	newseginfoptr = SMBUFF_HEAD(SegInfo, &(newseginfo));
-	newseginfoptr->HostNameLen = strlen(fts_client_host);
+	newseginfoptr->HostNameLen = strlen(fts_client_host->h_name);
 	appendSelfMaintainBufferTill64bitAligned(&newseginfo);
 
 	/* fill in failed temporary directory string */
@@ -874,7 +874,7 @@ SegStat addNewIPToSegStat(SegStat segstat, char* fts_client_ip, uint32_t fts_cli
 	newseginfoptr->GRMRackNameOffset = 0;
 
 	elog(RMLOG, "resource manager received IMAlive message, "
-	"this segment's hostname: %s\n", fts_client_host);
+	"this segment's hostname: %s\n", fts_client_host->h_name);
 
 	SegStat newsegstat = (SegStat) rm_palloc0(PCONTEXT,
 			offsetof(SegStatData, Info) + getSMBContentSize(&newseginfo));
@@ -899,7 +899,6 @@ bool handleRMSEGRequestIMAliveEtcd(char *key, char *value, bool isNewHost)
 	char deletedHostName[100];
 	int dirlen = strlen(rm_etcd_server_dir);
 	int keylen = strlen(key);
-	char client_host[100];
 	if (strcmp(value, "") == 0) {
 		strncpy(deletedHostName, key + dirlen, keylen);
 		elog(LOG, "deletedHostName is %s", deletedHostName);
@@ -922,12 +921,9 @@ bool handleRMSEGRequestIMAliveEtcd(char *key, char *value, bool isNewHost)
 		fts_client_host = gethostbyaddr(&fts_client_addr, 4, AF_INET);
 		elog(LOG, "fts_client_ip is %s, fts_client_host is %s, fts_client_ip_len is %d", fts_client_ip, fts_client_host, fts_client_ip_len);
 		if (fts_client_host == NULL) {
-			strncpy(client_host, key + dirlen, keylen);
 			elog(WARNING, "failed to reverse DNS lookup for ip %s.", fts_client_ip);
-			//return false;
+			return false;
 		}
-		else
-			strcpy(client_host, fts_client_host->h_name);
 	}
 	if (segstat == NULL)
     {
@@ -937,10 +933,10 @@ bool handleRMSEGRequestIMAliveEtcd(char *key, char *value, bool isNewHost)
 
 	/* Need to add fts_client_ip to the first place of the ip address array. */
 	bool capstatchanged = false;
-	if (NULL != client_host)
+	if (NULL != fts_client_host)
 	{
 		SegStat newsegstat = NULL;
-		newsegstat = addNewIPToSegStat(segstat, fts_client_ip, fts_client_ip_len, client_host);
+		newsegstat = addNewIPToSegStat(segstat, fts_client_ip, fts_client_ip_len, fts_client_host);
 
 		if (PRESPOOL->AvailNodeCount < cluster_size) {
 			if (addHAWQSegWithSegStat(newsegstat, &capstatchanged) != FUNC_RETURN_OK) {
