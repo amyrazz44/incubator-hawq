@@ -641,11 +641,42 @@ int MainHandlerLoop(void)
 	cetcd_array *addrs = malloc(sizeof(cetcd_array));
 	cetcd_array *watchers = malloc(sizeof(cetcd_array));
 	cetcd_watch_id wid;
+	cetcd_response *resp;
+	cetcd_response_node *node;
+	int count;
 
 	cetcd_array_init(addrs, 1);
 	cetcd_array_append(addrs, addrIP);
 	cetcd_client_init(cli, addrs);
 	cetcd_array_init(watchers, 1);
+	resp = cetcd_lsdir(cli, rm_etcd_server_dir, 1, 1);
+	if(resp->err)
+	{
+		elog(LOG, " etcd error :%d, %s (%s)\n", resp->err->ecode, resp->err->message, resp->err->cause);
+	}
+	if(resp->node->nodes)
+	{
+		count = cetcd_array_size(resp->node->nodes);
+		for (int i=0; i<count; ++i)
+		{
+			node = cetcd_array_get(resp->node->nodes, i);
+			pthread_mutex_lock(&Etcd_queue_mutex);
+			if (NULL == node->key) {
+			        strcpy(Etcd_queue.key[Etcd_queue.size], "");
+			} else {
+			        strcpy(Etcd_queue.key[Etcd_queue.size], node->key);
+			}
+			
+			if (NULL == node->value) {
+			        strcpy(Etcd_queue.value[Etcd_queue.size], "");
+			} else {
+			        strcpy(Etcd_queue.value[Etcd_queue.size], node->value);
+			}
+			Etcd_queue.addNewHost = true;
+			Etcd_queue.size++;
+			pthread_mutex_unlock(&Etcd_queue_mutex);
+		}
+	}
 	cetcd_add_watcher(watchers,cetcd_watcher_create(cli, rm_etcd_server_dir, 0, 1, 0, watch,NULL));
 	wid = cetcd_multi_watch_async(cli, watchers);
 

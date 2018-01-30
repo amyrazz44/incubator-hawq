@@ -750,7 +750,7 @@ void delete_segment_status(int32_t id)
 	PQExpBuffer sql = NULL;
 	PGresult* result = NULL;
 
-	printf(conninfo, "options='-c gp_session_role=UTILITY -c allow_system_table_mods=dml' "
+	sprintf(conninfo, "options='-c gp_session_role=UTILITY -c allow_system_table_mods=dml' "
 			"dbname=template1 port=%d connect_timeout=%d", master_addr_port, CONNECT_TIMEOUT);
 	conn = PQconnectdb(conninfo);
 	if ((libpqres = PQstatus(conn)) != CONNECTION_OK)
@@ -3543,21 +3543,21 @@ int notifyToBeAcceptedGRMContainersToRMSEG(void)
 		Assert(firstctn != NULL);
 		char *hostname = firstctn->HostName;
 
-		if (rm_resourcepool_test_filename == NULL ||
-			rm_resourcepool_test_filename[0] == '\0')
-		{
-			res = increaseMemoryQuota(hostname, ctns);
-			if ( res != FUNC_RETURN_OK )
-			{
-				elog(LOG, "Resource manager failed to increase memory quota on "
-						  "host %s.", hostname);
-			}
-		}
-		/* Skip memory quota increase in fault injection mode for RM test */
-		else
-		{
+//		if (rm_resourcepool_test_filename == NULL ||
+//			rm_resourcepool_test_filename[0] == '\0')
+//		{
+//			res = increaseMemoryQuota(hostname, ctns);
+//			if ( res != FUNC_RETURN_OK )
+//			{
+//				elog(LOG, "Resource manager failed to increase memory quota on "
+//						  "host %s.", hostname);
+//			}
+//		}
+//		/* Skip memory quota increase in fault injection mode for RM test */
+//		else
+//		{
 			moveGRMContainerSetToAccepted(ctns);
-		}
+//		}
 	}
 	freePAIRRefList(&(PRESPOOL->ToAcceptContainers), &ctnss);
 	return FUNC_RETURN_OK;
@@ -3594,23 +3594,23 @@ int notifyToBeKickedGRMContainersToRMSEG(void)
 		Assert(firstctn != NULL);
 		char *hostname = firstctn->HostName;
 
-		if (rm_resourcepool_test_filename == NULL ||
-			rm_resourcepool_test_filename[0] == '\0')
-		{
-			res = decreaseMemoryQuota(hostname, ctns);
-
-			if ( res != FUNC_RETURN_OK )
-			{
-				elog(LOG, "Resource manager failed to decrease memory quota on "
-						  "host %s",
-						  hostname);
-			}
-		}
-		/* Skip memory quota increase in fault injection mode for RM test. */
-		else
-		{
+//		if (rm_resourcepool_test_filename == NULL ||
+//			rm_resourcepool_test_filename[0] == '\0')
+//		{
+//			res = decreaseMemoryQuota(hostname, ctns);
+//
+//			if ( res != FUNC_RETURN_OK )
+//			{
+//				elog(LOG, "Resource manager failed to decrease memory quota on "
+//						  "host %s",
+//						  hostname);
+//			}
+//		}
+//		/* Skip memory quota increase in fault injection mode for RM test. */
+//		else
+//		{
 			moveGRMContainerSetToKicked(ctns);
-		}
+//		}
 	}
 
 	freePAIRRefList(&(PRESPOOL->ToKickContainers), &ctnss);
